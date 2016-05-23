@@ -75,7 +75,7 @@ public enum Language {
 
   static final Map<String, Language> LANGUAGE_CODE_MAP = unmodifiableMap(
       new HashMap<String, Language>() {{
-        for (Language _ : values()) {
+        for (Language _ : Language.values()) {
           put(_.code, _);
         }
       }});

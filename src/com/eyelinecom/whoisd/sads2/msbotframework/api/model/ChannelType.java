@@ -37,7 +37,7 @@ public enum ChannelType {
 
   private static final Map<String, ChannelType> CHANNEL_NAMES = unmodifiableMap(
       new HashMap<String, ChannelType>() {{
-        for (ChannelType _ : values()) {
+        for (ChannelType _ : ChannelType.values()) {
           put(StringUtils.remove(_.name(), '_'), _);
         }
       }});

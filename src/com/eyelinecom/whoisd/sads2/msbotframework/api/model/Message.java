@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 /**
  * A communication message recieved from a User or sent out of band from a Bot.
  */
-public class Message {
+public class Message extends ApiType<Message> {
 
   /**
    * What kind of message is this.
@@ -127,4 +127,187 @@ public class Message {
    */
   private String eTag;
 
+  public MessageType getType() {
+    return type;
+  }
+
+  public void setType(MessageType type) {
+    this.type = type;
+  }
+
+  public String getId() {
+    return id;
+  }
+
+  public void setId(String id) {
+    this.id = id;
+  }
+
+  public String getConversationId() {
+    return conversationId;
+  }
+
+  public void setConversationId(String conversationId) {
+    this.conversationId = conversationId;
+  }
+
+  public String getCreated() {
+    return created;
+  }
+
+  public void setCreated(String created) {
+    this.created = created;
+  }
+
+  public String getSourceText() {
+    return sourceText;
+  }
+
+  public void setSourceText(String sourceText) {
+    this.sourceText = sourceText;
+  }
+
+  public Language getSourceLanguage() {
+    return sourceLanguage;
+  }
+
+  public void setSourceLanguage(Language sourceLanguage) {
+    this.sourceLanguage = sourceLanguage;
+  }
+
+  public Language getLanguage() {
+    return language;
+  }
+
+  public void setLanguage(Language language) {
+    this.language = language;
+  }
+
+  public String getText() {
+    return text;
+  }
+
+  public void setText(String text) {
+    this.text = text;
+  }
+
+  public Attachment[] getAttachments() {
+    return attachments;
+  }
+
+  public void setAttachments(Attachment[] attachments) {
+    this.attachments = attachments;
+  }
+
+  public ChannelAccount getFrom() {
+    return from;
+  }
+
+  public void setFrom(ChannelAccount from) {
+    this.from = from;
+  }
+
+  public ChannelAccount getTo() {
+    return to;
+  }
+
+  public void setTo(ChannelAccount to) {
+    this.to = to;
+  }
+
+  public ChannelAccount getReplyTo() {
+    return replyTo;
+  }
+
+  public void setReplyTo(ChannelAccount replyTo) {
+    this.replyTo = replyTo;
+  }
+
+  public String getReplyToMessageId() {
+    return replyToMessageId;
+  }
+
+  public void setReplyToMessageId(String replyToMessageId) {
+    this.replyToMessageId = replyToMessageId;
+  }
+
+  public ChannelAccount[] getParticipants() {
+    return participants;
+  }
+
+  public void setParticipants(ChannelAccount[] participants) {
+    this.participants = participants;
+  }
+
+  public Integer getTotalParticipants() {
+    return totalParticipants;
+  }
+
+  public void setTotalParticipants(Integer totalParticipants) {
+    this.totalParticipants = totalParticipants;
+  }
+
+  public Mention[] getMentions() {
+    return mentions;
+  }
+
+  public void setMentions(Mention[] mentions) {
+    this.mentions = mentions;
+  }
+
+  public String getPlace() {
+    return place;
+  }
+
+  public void setPlace(String place) {
+    this.place = place;
+  }
+
+  public String getChannelMessageId() {
+    return channelMessageId;
+  }
+
+  public void setChannelMessageId(String channelMessageId) {
+    this.channelMessageId = channelMessageId;
+  }
+
+  public String getChannelConversationId() {
+    return channelConversationId;
+  }
+
+  public void setChannelConversationId(String channelConversationId) {
+    this.channelConversationId = channelConversationId;
+  }
+
+  public Object getChannelData() {
+    return channelData;
+  }
+
+  public void setChannelData(Object channelData) {
+    this.channelData = channelData;
+  }
+
+  public Location getLocation() {
+    return location;
+  }
+
+  public void setLocation(Location location) {
+    this.location = location;
+  }
+
+  public String[] getHashtags() {
+    return hashtags;
+  }
+
+  public void setHashtags(String[] hashtags) {
+    this.hashtags = hashtags;
+  }
+
+  public String geteTag() {
+    return eTag;
+  }
+
+  public void seteTag(String eTag) {
+    this.eTag = eTag;
+  }
 }

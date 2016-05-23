@@ -65,7 +65,7 @@ public enum MessageType {
 
   private static final Map<String, MessageType> JSON_NAMES = unmodifiableMap(
       new HashMap<String, MessageType>() {{
-        for (MessageType _ : values()) {
+        for (MessageType _ : MessageType.values()) {
           put(StringUtils.remove(_.name(), '_'), _);
         }
       }});
