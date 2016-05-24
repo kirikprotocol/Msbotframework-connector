@@ -84,6 +84,21 @@ public class Attachment {
   public Attachment() {
   }
 
+  /**
+   * Action.
+   */
+  public Attachment(Action[] actions) {
+    this.actions = actions;
+  }
+
+  /**
+   * Image/file.
+   */
+  public Attachment(String contentType, String contentUrl) {
+    this.contentType = contentType;
+    this.contentUrl = contentUrl;
+  }
+
   public Action[] getActions() {
     return actions;
   }

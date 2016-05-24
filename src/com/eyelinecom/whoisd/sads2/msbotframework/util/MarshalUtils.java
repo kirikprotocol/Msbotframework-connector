@@ -6,10 +6,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.type.CollectionType;
 
 import java.io.IOException;
-import java.util.List;
 
 public class MarshalUtils {
 
@@ -29,14 +27,6 @@ public class MarshalUtils {
 
     //noinspection unchecked
     return (T) mapper.readerFor(clazz).readValue(obj);
-  }
-
-  public static <T> List<T> unmarshalList(JsonNode obj, Class<T> clazz)
-      throws IOException {
-
-    final CollectionType type =
-        mapper.getTypeFactory().constructCollectionType(List.class, clazz);
-    return mapper.readerFor(type).readValue(obj);
   }
 
   public static <T> T unmarshal(String json, Class<T> clazz)

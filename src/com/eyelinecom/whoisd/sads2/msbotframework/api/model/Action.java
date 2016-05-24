@@ -25,6 +25,11 @@ public class Action {
   /** Url to an image to put on the card (Not all channels will show an image.) */
   private String image;
 
+  public Action(String title, String message) {
+    this.title = title;
+    this.message = message;
+  }
+
   public Action() {}
 
   public String getTitle() {

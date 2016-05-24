@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 /**
- * A communication message recieved from a User or sent out of band from a Bot.
+ * A communication message received from a User or sent out of band from a Bot.
  */
 public class Message extends ApiType<Message> {
 
@@ -309,5 +309,22 @@ public class Message extends ApiType<Message> {
 
   public void seteTag(String eTag) {
     this.eTag = eTag;
+  }
+
+  public Message createReply() {
+    final Message reply = new Message();
+
+    reply.setConversationId(this.getConversationId());
+    reply.setFrom(this.getTo());
+    reply.setLanguage(this.getLanguage());
+    reply.setTo(this.getFrom());
+
+    return reply;
+  }
+
+  public Message createReply(String replyText) {
+    final Message reply = createReply();
+    reply.setText(replyText);
+    return reply;
   }
 }

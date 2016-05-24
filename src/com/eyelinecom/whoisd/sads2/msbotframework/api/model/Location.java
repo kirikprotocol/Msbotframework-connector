@@ -2,23 +2,25 @@ package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
 
 /**
  * A GEO location.
+ *
+ * @see <a href="https://dev.onedrive.com/facets/location_facet.htm">Location facet</a>
  */
 public class Location {
 
   /**
    * Optional. Altitude.
    */
-  Double altitude;
+  private Double altitude;
 
   /**
    * Latitude for the user when the message was created.
    */
-  double latitude;
+  private double latitude;
 
   /**
    * Longitude for the user when the message was created.
    */
-  double longitude;
+  private double longitude;
 
   public Location() {}
 
