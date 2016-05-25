@@ -13,7 +13,7 @@ public class MarshalUtils {
 
   private static final ObjectMapper mapper = new ObjectMapper();
   static {
-    mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
     mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   }

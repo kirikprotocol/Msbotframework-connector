@@ -1,9 +1,12 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.registry;
 
 import com.eyelinecom.whoisd.sads2.common.InitUtils;
+import com.eyelinecom.whoisd.sads2.common.SADSInitUtils;
 import com.eyelinecom.whoisd.sads2.common.StringUtils;
 import com.eyelinecom.whoisd.sads2.exception.ConfigurationException;
 import com.eyelinecom.whoisd.sads2.exception.NotFoundServiceException;
+import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
+import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.registry.Config;
 import com.eyelinecom.whoisd.sads2.registry.ServiceConfig;
 import com.eyelinecom.whoisd.sads2.registry.ServiceConfigListener;
@@ -28,6 +31,11 @@ public class MbfServiceRegistry extends ServiceConfigListener {
   public static final String CONF_TOKEN = "msbotframework.token";
 
   private final BiMap<String, MbfBotDetails> services = HashBiMap.create();
+  private final MbfApi api;
+
+  public MbfServiceRegistry(MbfApi api) {
+    this.api = api;
+  }
 
   @Override
   protected void process(Config config) throws ConfigurationException {
@@ -84,6 +92,14 @@ public class MbfServiceRegistry extends ServiceConfigListener {
       }
     }
 
+    // Check if Application ID & secret are valid.
+    try {
+      api.checkCredentials(details);
+
+    } catch (MbfException e) {
+      throw new ConfigurationException(serviceId, "Credentials check failed", e);
+    }
+
     services.put(serviceId, details);
   }
 
@@ -110,7 +126,8 @@ public class MbfServiceRegistry extends ServiceConfigListener {
     public MbfServiceRegistry build(String id,
                                     Properties properties,
                                     HierarchicalConfiguration config) throws Exception {
-      return new MbfServiceRegistry();
+      final MbfApi api = SADSInitUtils.getResource("msbotframework-api", properties);
+      return new MbfServiceRegistry(api);
     }
 
     @Override

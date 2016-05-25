@@ -11,4 +11,11 @@ public interface MbfApi {
                MbfBotDetails bot,
                Message message) throws MbfException;
 
+  /**
+   * Checks if the supplied credentials are valid.
+   *
+   * @throws MbfException in case validation failed for whatever reason.
+   */
+  void checkCredentials(MbfBotDetails bot) throws MbfException;
+
 }

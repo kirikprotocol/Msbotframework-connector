@@ -25,12 +25,21 @@ public class MbfApiImpl implements MbfApi {
    */
   private final RateLimiter messagesPerSecondLimit;
 
+  /**
+   * {@code true} iff MBF token should be validated on change.
+   * As the validation logic is unreliable, we might need to disable this.
+   */
+  private final boolean performEagerTokenCheck;
+
   private MbfApiImpl(HttpDataLoader loader, Properties properties) {
     this.loader = loader;
 
     final float limitMessagesPerSecond =
-        Float.parseFloat(properties.getProperty("skype.limit.messages.per.second", "30"));
+        Float.parseFloat(properties.getProperty("mbf.limit.messages.per.second", "30"));
     this.messagesPerSecondLimit = RateLimiter.create(limitMessagesPerSecond);
+
+    this.performEagerTokenCheck =
+        Boolean.parseBoolean(properties.getProperty("mbf.validate.token", "true"));
   }
 
   @Override
@@ -43,8 +52,17 @@ public class MbfApiImpl implements MbfApi {
     return getClient(bot).send(message);
   }
 
+  @Override
+  public void checkCredentials(MbfBotDetails bot) throws MbfException {
+    messagesPerSecondLimit.acquire();
+
+    if (performEagerTokenCheck) {
+      getClient(bot).checkCredentials();
+    }
+  }
+
   private BotApiClient getClient(MbfBotDetails bot) {
-    return new BotApiClient(null, bot.getAppId(), bot.getAppSecret(), loader);
+    return new BotApiClient(bot.getAppId(), bot.getAppSecret(), loader);
   }
 
   @SuppressWarnings("unused")

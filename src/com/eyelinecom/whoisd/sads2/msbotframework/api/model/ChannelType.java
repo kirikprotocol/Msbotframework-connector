@@ -24,7 +24,9 @@ import static org.apache.commons.lang3.StringUtils.upperCase;
  */
 public enum ChannelType {
 
+  /** "Test connection" in bot details. */
   TEST,
+
   EMULATOR,
   EMAIL,
   GROUP_ME,
@@ -33,7 +35,10 @@ public enum ChannelType {
   SLACK,
   SMS,
   TELEGRAM,
-  WEB;
+  WEB,
+
+  /** Embedded chat widget */
+  WEB_CHAT;
 
   private static final Map<String, ChannelType> CHANNEL_NAMES = unmodifiableMap(
       new HashMap<String, ChannelType>() {{
