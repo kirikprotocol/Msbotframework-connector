@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<page><message>Welcome to formatting demo!
+
+This is a **bold** and _italic_ text.
+
+You can also use **strong** and _em_ tags.
+
+This is an `inline code block`. And this is a pre-formatted block:
+
+`pre { white-space: pre-wrap; } `</message><button href="index_formatting.xml">Show again</button></page>

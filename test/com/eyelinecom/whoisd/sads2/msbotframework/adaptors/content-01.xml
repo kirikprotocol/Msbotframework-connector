@@ -1,0 +1,24 @@
+<page version="2.0">
+  <attributes>
+    <attribute name="keywords" value="kw1,kw2,kw3"/>
+  </attributes>
+  <div>Welcome to formatting demo!
+    <br/>
+    This is a <b>bold</b> and <i>italic</i> text.
+    <br/>
+    You can also use <strong>strong</strong> and <em>em</em> tags.
+    <br/>
+  </div>
+  <div>
+    This is an <code>inline code block</code>. And this is a pre-formatted block:
+    <br/>
+    <pre>
+      pre {
+      white-space: pre-wrap;
+      }
+    </pre>
+  </div>
+  <navigation>
+    <link pageId="index_formatting.xml">Show again</link>
+  </navigation>
+</page>

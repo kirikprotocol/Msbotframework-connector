@@ -3,7 +3,7 @@
                 xmlns:meta="http://whoisd.eyelinecom.com/sads/meta" exclude-result-prefixes="meta">
 
   <xsl:template match="br">
-    <xsl:text>&#xa;</xsl:text>
+    <br/>
   </xsl:template>
 
   <xsl:template match="b">
@@ -44,8 +44,7 @@
 
   <xsl:template match="p">
     <xsl:apply-templates/>
-    <xsl:text>
-    </xsl:text>
+    <xsl:text>&#xa;</xsl:text>
   </xsl:template>
 
   <xsl:template match="a">
