@@ -17,7 +17,7 @@ import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
 import com.eyelinecom.whoisd.sads2.input.InputFile;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
@@ -321,14 +321,14 @@ public class MbfMessageConnector extends HttpServlet {
 
       final Message msg = req.asMessage();
 
-      final Attachment[] attachments = msg.getAttachments();
+      final MbfAttachment[] attachments = msg.getAttachments();
       if (ArrayUtils.isEmpty(attachments)) {
         return Collections.emptyList();
       }
 
       final List<AbstractInputType> rc = new ArrayList<>();
 
-      for (Attachment attachment : attachments) {
+      for (MbfAttachment attachment : attachments) {
         final String url = trimToNull(attachment.getContentUrl());
         if (url == null) {
           // No content URL means this is not an attachment.

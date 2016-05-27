@@ -3,6 +3,7 @@ package com.eyelinecom.whoisd.sads2.msbotframework.api;
 import com.eyelinecom.whoisd.sads2.common.HttpDataLoader;
 import com.eyelinecom.whoisd.sads2.content.attachments.Attachment;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSInitializer;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.multipart.FileUpload.ByteFileUpload;
 import com.google.common.base.Function;
 import com.google.common.cache.Cache;
@@ -18,7 +19,7 @@ import static com.eyelinecom.whoisd.sads2.content.attachments.Attachment.Type;
 import static com.eyelinecom.whoisd.sads2.content.attachments.Attachment.Type.fromString;
 
 public class MbfAttachmentConverter
-    implements Function<Attachment, com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment> {
+    implements Function<Attachment, MbfAttachment> {
 
   private final Logger log;
   private final HttpDataLoader loader;
@@ -37,7 +38,7 @@ public class MbfAttachmentConverter
   }
 
   @Override
-  public com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment apply(final Attachment _) {
+  public MbfAttachment apply(final Attachment _) {
 
     final Type type = fromString(_.getType());
     if (type == null) {
@@ -50,7 +51,7 @@ public class MbfAttachmentConverter
     }
 
     // MS Bot Framework requires content type for attachments.
-    String contentType = null;
+    final String contentType;
     try {
       if (upload.getMime() != null) {
         contentType = upload.getMime();
@@ -66,9 +67,7 @@ public class MbfAttachmentConverter
     }
 
     if (upload.getUrl() != null) {
-      return new com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment(
-          contentType, upload.getUrl()
-      );
+      return new MbfAttachment(contentType, upload.getUrl());
 
     } else {
       // In case an attachment is declared using inline BASE64 content, we should provide
@@ -78,9 +77,7 @@ public class MbfAttachmentConverter
       final long fileId = Arrays.hashCode(upload.getBytes());
       fileCache.put(fileId, upload.getBytes());
 
-      return new com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment(
-          contentType, getAttachmentUrl(String.valueOf(fileId))
-      );
+      return new MbfAttachment(contentType, getAttachmentUrl(String.valueOf(fileId)));
     }
   }
 

@@ -53,7 +53,7 @@ public class Message extends ApiType<Message> {
   /**
    * Array of attachments that can be anything.
    */
-  private Attachment[] attachments;
+  private MbfAttachment[] attachments;
 
   /**
    * ChannelIdentity that sent the message.
@@ -191,11 +191,11 @@ public class Message extends ApiType<Message> {
     this.text = text;
   }
 
-  public Attachment[] getAttachments() {
+  public MbfAttachment[] getAttachments() {
     return attachments;
   }
 
-  public void setAttachments(Attachment[] attachments) {
+  public void setAttachments(MbfAttachment[] attachments) {
     this.attachments = attachments;
   }
 

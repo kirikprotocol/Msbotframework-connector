@@ -39,7 +39,7 @@ package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
  * </code></pre>
  * </p>
  */
-public class Attachment {
+public class MbfAttachment {
 
   /**
    * List of actions to map to buttons in the clients UI. Valid for _action_ & _card_ attachments.
@@ -81,20 +81,20 @@ public class Attachment {
    */
   private String thumbnailUrl;
 
-  public Attachment() {
+  public MbfAttachment() {
   }
 
   /**
    * Action.
    */
-  public Attachment(Action[] actions) {
+  public MbfAttachment(Action[] actions) {
     this.actions = actions;
   }
 
   /**
    * Image/file.
    */
-  public Attachment(String contentType, String contentUrl) {
+  public MbfAttachment(String contentType, String contentUrl) {
     this.contentType = contentType;
     this.contentUrl = contentUrl;
   }

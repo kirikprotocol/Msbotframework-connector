@@ -1,6 +1,7 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.interceptors;
 
 import com.eyelinecom.whoisd.sads2.RequestDispatcher;
+import com.eyelinecom.whoisd.sads2.common.HttpDataLoader;
 import com.eyelinecom.whoisd.sads2.common.Initable;
 import com.eyelinecom.whoisd.sads2.common.PageBuilder;
 import com.eyelinecom.whoisd.sads2.common.SADSInitUtils;
@@ -9,16 +10,19 @@ import com.eyelinecom.whoisd.sads2.connector.SADSResponse;
 import com.eyelinecom.whoisd.sads2.connector.Session;
 import com.eyelinecom.whoisd.sads2.content.ContentRequestUtils;
 import com.eyelinecom.whoisd.sads2.content.ContentResponse;
+import com.eyelinecom.whoisd.sads2.content.attachments.Attachment;
 import com.eyelinecom.whoisd.sads2.exception.InterceptionException;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.MbfAttachmentConverter;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Action;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Attachment;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
 import com.eyelinecom.whoisd.sads2.msbotframework.connector.MbfMessageConnector;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
 import com.eyelinecom.whoisd.sads2.session.SessionManager;
+import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
@@ -36,9 +40,13 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.getAttributes;
+import static com.google.common.base.Predicates.notNull;
+import static com.google.common.collect.Collections2.filter;
+import static com.google.common.collect.Collections2.transform;
+import static org.apache.commons.collections.CollectionUtils.isNotEmpty;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "WeakerAccess"})
 public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
   private static final Logger log = Logger.getLogger(MbfPushInterceptor.class);
@@ -46,6 +54,8 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   private MbfServiceRegistry serviceRegistry;
   private MbfApi client;
   private ServiceSessionManager sessionManager;
+  private HttpDataLoader loader;
+  private Cache<Long, byte[]> fileCache;
 
   @Override
   public void afterResponseRender(SADSRequest request,
@@ -83,7 +93,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   /**
    * Processes content-originated messages.
    */
-  private void sendMbfMessage(SADSRequest request,
+  private void sendMbfMessage(final SADSRequest request,
                               ContentResponse contentResponse,
                               SADSResponse response) throws Exception {
 
@@ -122,20 +132,9 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       final Message reply = initialMessage.createReply();
       reply.setText(text);
 
-      final List<Attachment> attachments = new ArrayList<Attachment>() {{
-        // Keyboard.
-        if (buttons != null) {
-          final List<Action> actions = new ArrayList<>();
-          for (Element button : buttons) {
-            actions.add(new Action(button.getTextTrim(), button.getTextTrim()));
-          }
-
-          add(new Attachment(actions.toArray(new Action[0])));
-        }
-
-      }};
-
-      reply.setAttachments(attachments.toArray(new Attachment[0]));
+      reply.setAttachments(
+          extractAttachments(request, doc).toArray(new MbfAttachment[0])
+      );
 
       client.send(sessionManager, serviceRegistry.getBot(serviceId), reply);
     }
@@ -144,6 +143,33 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       // No inputs mean that the dialog is over.
       session.close();
     }
+  }
+
+  private List<MbfAttachment> extractAttachments(final SADSRequest request,
+                                                 final Document doc) {
+
+    return new ArrayList<MbfAttachment>() {{
+      // Keyboard.
+      final List<Element> buttons = getKeyboard(doc);
+      if (isNotEmpty(buttons)) {
+        final List<Action> actions = new ArrayList<>();
+        for (Element button : buttons) {
+          actions.add(new Action(button.getTextTrim(), button.getTextTrim()));
+        }
+
+        add(new MbfAttachment(actions.toArray(new Action[0])));
+      }
+
+      // File attachments.
+      final Collection<Attachment> fileAttachments = Attachment.extract(log, doc);
+      if (isNotEmpty(fileAttachments)) {
+        final MbfAttachmentConverter converter =
+            new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
+
+        addAll(filter(transform(fileAttachments, converter), notNull()));
+      }
+
+    }};
   }
 
   /**
@@ -199,6 +225,8 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     serviceRegistry = SADSInitUtils.getResource("msbotframework-service-registry", config);
     client = SADSInitUtils.getResource("client", config);
     sessionManager = SADSInitUtils.getResource("session-manager", config);
+    loader = SADSInitUtils.getResource("loader", config);
+    fileCache = SADSInitUtils.getResource("file-cache", config);
   }
 
   @Override
