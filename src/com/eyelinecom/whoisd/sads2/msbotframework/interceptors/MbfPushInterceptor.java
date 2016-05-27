@@ -191,7 +191,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       }
     }};
 
-    return StringUtils.join(messages, "\n").trim();
+    return StringUtils.join(messages, "\n\n").trim();
   }
 
   public static String getContent(Element element) throws DocumentException {
@@ -203,9 +203,9 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     //noinspection unchecked
     for (Node e : (List<Node>) messageElement.selectNodes("//text()")) {
-      if (!"pre".equals(e.getParent().getName())) {
-        e.setText(e.getText().replaceAll("\\n\\s+", "\n"));
-      }
+//      if (!"pre".equals(e.getParent().getName())) {
+//        e.setText(e.getText().replaceAll("\\n\\s+", "\n"));
+//      }
     }
 
     //noinspection unchecked

@@ -1,0 +1,28 @@
+<page version="2.0">
+
+  <div>
+    Code block might be embedded like this:
+    <br/>
+    <code>
+      &lt;code&gt;
+      Code block
+      &lt;/code&gt;
+    </code>
+
+    <br/>
+    <br/>
+    <br/>
+
+    And a pre-formatted text:
+    <pre>
+      /\___/\
+      (  o o  )
+      /   *   \
+      \__\_/__/ meow!
+      /   \
+      / ___ \
+      \/___\/
+    </pre>
+
+  </div>
+</page>

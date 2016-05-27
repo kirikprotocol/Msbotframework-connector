@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<page><message>Code block might be embedded like this:
+
+` &lt;code&gt; Code block &lt;/code&gt; `
+
+
+
+
+
+And a pre-formatted text: `/\___/\ ( o o ) / * \ \__\_/__/ meow! / \ / ___ \ \/___\/ `</message></page>
