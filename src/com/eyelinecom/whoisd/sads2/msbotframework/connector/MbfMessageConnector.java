@@ -50,7 +50,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.eyelinecom.whoisd.sads2.Protocol.MSBOTFRAMEWORK;
+import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.CLEAR_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.INVALIDATE_SESSION;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SHOW_PROFILE;
@@ -219,13 +219,13 @@ public class MbfMessageConnector extends HttpServlet {
       final Message msg = req.asMessage();
 
       final String incoming = req.getMessageText();
-      if (ChatCommand.match(incoming, MSBOTFRAMEWORK) == CLEAR_PROFILE) {
+      if (ChatCommand.match(incoming, FACEBOOK) == CLEAR_PROFILE) {
         // Reset profile of the current user.
 
-        final String from = msg.getFrom().getId();
+        final String from = msg.getFrom().getAddress();
         final Profile profile = getProfileStorage()
             .query()
-            .where(property("mbf", "id").eq(from))
+            .where(property("mbf", "fb-id").eq(from))
             .get();
         if (profile != null) {
           profile.delete();
@@ -234,12 +234,15 @@ public class MbfMessageConnector extends HttpServlet {
 
       final Profile profile;
 
-      final String userId = msg.getFrom().getId();
+      final String userId = msg.getFrom().getAddress();
       if (userId != null) {
         profile = getProfileStorage()
             .query()
-            .where(property("mbf", "id").eq(userId))
+            .where(property("mbf", "fb-id").eq(userId))
             .getOrCreate();
+
+        final String safeSid = getServiceId(req).replace(".", "_");
+        profile.property("mbf", "fb-id-" + safeSid).set(msg.getTo().getAddress());
 
       } else {
         profile = null;
@@ -357,7 +360,8 @@ public class MbfMessageConnector extends HttpServlet {
     protected Protocol getRequestProtocol(ServiceConfig config,
                                           String subscriberId,
                                           MbfWebhookRequest httpServletRequest) {
-      return MSBOTFRAMEWORK;
+      // Only FB is supported for now.
+      return FACEBOOK;
     }
 
     @Override
@@ -384,15 +388,15 @@ public class MbfMessageConnector extends HttpServlet {
       } else if (cmd == WHO_IS) {
         final Message reply = msg.createReply(
             "Application ID: " + bot.getAppId() + "." +
-                "\nSecret: " + bot.getAppSecret() + "." +
-                "\nService: " + serviceId + "."
+                "\n\nSecret: " + bot.getAppSecret() + "." +
+                "\n\nService: " + serviceId + "."
         );
         getClient().send(getSessionManager(serviceId), bot, reply);
 
       } else if (cmd == SHOW_PROFILE) {
         final Profile profile = getProfileStorage().find(wnumber);
 
-        final Message reply = msg.createReply(profile.dump());
+        final Message reply = msg.createReply(profile.dump().replace("\n", "\n\n"));
 
         getClient().send(getSessionManager(serviceId), bot, reply);
       }
@@ -507,7 +511,7 @@ public class MbfMessageConnector extends HttpServlet {
     private SessionManager getSessionManager(String serviceId) throws Exception {
       final ServiceSessionManager serviceSessionManager =
           (ServiceSessionManager) getResource("session-manager");
-      return serviceSessionManager.getSessionManager(MSBOTFRAMEWORK, serviceId);
+      return serviceSessionManager.getSessionManager(FACEBOOK, serviceId);
     }
 
     private ProfileStorage getProfileStorage() throws Exception {

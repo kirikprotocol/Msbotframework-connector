@@ -1,7 +1,11 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
+import java.util.List;
 
 /**
  * A communication message received from a User or sent out of band from a Bot.
@@ -53,6 +57,7 @@ public class Message extends ApiType<Message> {
   /**
    * Array of attachments that can be anything.
    */
+  @JsonProperty
   private MbfAttachment[] attachments;
 
   /**
@@ -127,6 +132,17 @@ public class Message extends ApiType<Message> {
    */
   private String eTag;
 
+  public Message() {}
+
+  public Message(String text, MbfAttachment[] attachments) {
+    this.text = text;
+    this.attachments = attachments;
+  }
+
+  public Message(String text, List<MbfAttachment> attachments) {
+    this(text, attachments.toArray(new MbfAttachment[0]));
+  }
+
   public MessageType getType() {
     return type;
   }
@@ -197,6 +213,11 @@ public class Message extends ApiType<Message> {
 
   public void setAttachments(MbfAttachment[] attachments) {
     this.attachments = attachments;
+  }
+
+  @JsonIgnore
+  public void setAttachments(List<MbfAttachment> attachments) {
+    setAttachments(attachments.toArray(new MbfAttachment[0]));
   }
 
   public ChannelAccount getFrom() {

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 /**
  * Information needed to route a message.
  */
@@ -41,6 +43,11 @@ public class ChannelAccount {
   private Boolean bot;
 
   public ChannelAccount() {}
+
+  public ChannelAccount(ChannelType channelId, String address) {
+    this.channelId = checkNotNull(channelId);
+    this.address = checkNotNull(address);
+  }
 
   public String getName() {
     return name;

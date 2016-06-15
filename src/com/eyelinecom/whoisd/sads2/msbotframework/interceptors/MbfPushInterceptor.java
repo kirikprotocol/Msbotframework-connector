@@ -15,6 +15,8 @@ import com.eyelinecom.whoisd.sads2.exception.InterceptionException;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.MbfAttachmentConverter;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Action;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelAccount;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelType;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
 import com.eyelinecom.whoisd.sads2.msbotframework.connector.MbfMessageConnector;
@@ -106,7 +108,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     final boolean isNothingToSend = StringUtils.isBlank(text) && buttons == null;
     if (!isNothingToSend) {
-      // TODO: check if a message with no text is allowed and we don't need this hack.
+      // Messages with no text are not allowed.
       text = text.isEmpty() ? "." : text;
     }
 
@@ -126,17 +128,33 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     }
 
     if (!isNothingToSend) {
+
       final Message initialMessage =
           (Message) request.getAttributes().get("mbf.message");
 
-      final Message reply = initialMessage.createReply();
-      reply.setText(text);
+      if (initialMessage == null) {
+        // PUSH request, so rely on Profile to be initialized w/ all the necessary stuff.
+        final String subscriberId =
+            request.getProfile().property("mbf", "fb-id").getValue();
 
-      reply.setAttachments(
-          extractAttachments(request, doc).toArray(new MbfAttachment[0])
-      );
+        final String safeSid = request.getServiceId().replace(".", "_");
+        final String botId =
+            request.getProfile().property("mbf", "fb-id-" + safeSid).getValue();
 
-      client.send(sessionManager, serviceRegistry.getBot(serviceId), reply);
+        final Message push = new Message(text, extractAttachments(request, doc)) {{
+          setFrom(new ChannelAccount(ChannelType.FACEBOOK, botId));
+          setTo(new ChannelAccount(ChannelType.FACEBOOK, subscriberId));
+        }};
+
+        client.send(sessionManager, serviceRegistry.getBot(serviceId), push);
+
+      } else {
+        final Message reply = initialMessage.createReply();
+        reply.setText(text);
+        reply.setAttachments(extractAttachments(request, doc));
+
+        client.send(sessionManager, serviceRegistry.getBot(serviceId), reply);
+      }
     }
 
     if (shouldCloseSession) {
