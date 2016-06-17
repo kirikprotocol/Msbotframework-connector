@@ -19,11 +19,17 @@ import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelAccount;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelType;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Bubble;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Button;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.FacebookChannelData;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.GenericTemplate;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.TemplateAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.connector.MbfMessageConnector;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
 import com.eyelinecom.whoisd.sads2.session.SessionManager;
+import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.StringUtils;
@@ -45,6 +51,9 @@ import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.get
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.Collections2.transform;
+import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Lists.partition;
+import static java.util.Arrays.asList;
 import static org.apache.commons.collections.CollectionUtils.isNotEmpty;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
@@ -141,17 +150,18 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         final String botId =
             request.getProfile().property("mbf", "fb-id-" + safeSid).getValue();
 
-        final Message push = new Message(text, extractAttachments(request, doc)) {{
+        final Message push = new Message() {{
           setFrom(new ChannelAccount(ChannelType.FACEBOOK, botId));
           setTo(new ChannelAccount(ChannelType.FACEBOOK, subscriberId));
         }};
+
+        fillContent(push, text, request, doc);
 
         client.send(sessionManager, serviceRegistry.getBot(serviceId), push);
 
       } else {
         final Message reply = initialMessage.createReply();
-        reply.setText(text);
-        reply.setAttachments(extractAttachments(request, doc));
+        fillContent(reply, text, request, doc);
 
         client.send(sessionManager, serviceRegistry.getBot(serviceId), reply);
       }
@@ -160,6 +170,58 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     if (shouldCloseSession) {
       // No inputs mean that the dialog is over.
       session.close();
+    }
+  }
+
+  private void fillContent(Message msg,
+
+                           final String text,
+                           SADSRequest request,
+                           Document doc) {
+
+    final int ACTIONS_PER_GROUP = 3;
+
+    final List<MbfAttachment> attachments = extractAttachments(request, doc);
+
+    final List<Action> actions = new ArrayList<Action>() {{
+      for (MbfAttachment _ : attachments) {
+        if (_.getActions() != null) {
+          addAll(asList(_.getActions()));
+        }
+      }
+    }};
+
+    if (actions.size() <= ACTIONS_PER_GROUP) {
+      // No pagination expected, so just produce a message with buttons using generic API.
+      msg.setText(text);
+      msg.setAttachments(attachments);
+
+    } else {
+      // Pagination expected, so wrap it into a `generic' template.
+      final List<Bubble> bubbles = new ArrayList<Bubble>() {{
+        final List<List<Action>> parts = partition(actions, ACTIONS_PER_GROUP);
+
+        for (int i = 0; i < parts.size(); i++) {
+          final boolean firstBubble = i == 0;
+          final List<Action> actions = parts.get(i);
+
+          add(new Bubble() {{
+            setTitle(firstBubble ? text : ".");
+            setButtons(newArrayList(transform(actions,
+                new Function<Action, Button>() {
+                  @Override public Button apply(Action _) { return Button.postback(_.getTitle()); }
+                }))
+            );
+          }});
+        }
+      }};
+
+      final GenericTemplate template = new GenericTemplate(bubbles);
+      msg.setChannelData(
+          new FacebookChannelData() {{
+            setAttachment(new TemplateAttachment(template));
+          }}
+      );
     }
   }
 
@@ -175,7 +237,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
           actions.add(new Action(button.getTextTrim(), button.getTextTrim()));
         }
 
-        add(new MbfAttachment(actions.toArray(new Action[0])));
+        add(new MbfAttachment(actions));
       }
 
       // File attachments.

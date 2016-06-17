@@ -115,7 +115,8 @@ public class Message extends ApiType<Message> {
    * Channel specific properties.
    * For example: Email channel may pass the Subject field as a property.
    */
-  private Object channelData;
+  @JsonIgnore
+  private ChannelData channelData;
 
   /**
    * Location information (see https://dev.onedrive.com/facets/location_facet.htm)
@@ -300,11 +301,13 @@ public class Message extends ApiType<Message> {
     this.channelConversationId = channelConversationId;
   }
 
-  public Object getChannelData() {
+  @JsonProperty
+  public ChannelData getChannelData() {
     return channelData;
   }
 
-  public void setChannelData(Object channelData) {
+  @JsonIgnore
+  public void setChannelData(ChannelData channelData) {
     this.channelData = channelData;
   }
 

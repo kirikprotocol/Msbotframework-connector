@@ -40,4 +40,8 @@ public class MarshalUtils {
     return mapper.writer().writeValueAsString(obj);
   }
 
+  public static <T> String pretty(T obj) throws JsonProcessingException {
+    return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+  }
+
 }

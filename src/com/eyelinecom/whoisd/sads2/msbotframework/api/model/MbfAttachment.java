@@ -1,5 +1,7 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
 
+import java.util.List;
+
 /**
  * Three types of message attachments are currently supported (_action_, _image/file_,
  * and _card_.)
@@ -87,9 +89,8 @@ public class MbfAttachment {
   /**
    * Action.
    */
-  public MbfAttachment(Action[] actions) {
-    this.actions = actions;
-  }
+  public MbfAttachment(Action[] actions)      { this.actions = actions; }
+  public MbfAttachment(List<Action> actions)  { this(actions.toArray(new Action[0])); }
 
   /**
    * Image/file.

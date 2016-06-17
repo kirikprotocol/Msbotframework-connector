@@ -47,11 +47,11 @@ public enum ChannelType {
         }
       }});
 
-  public static ChannelType deserialize(String input) {
+  static ChannelType deserialize(String input) {
     return isBlank(input) ? null : CHANNEL_NAMES.get(upperCase(input));
   }
 
-  public String serialize() {
+  private String serialize() {
     return remove(lowerCase(name()), '_');
   }
 

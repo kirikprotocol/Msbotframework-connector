@@ -31,13 +31,20 @@ public abstract class ApiType<T extends ApiType> {
   }
 
   public String marshal() throws MbfException {
-    //noinspection unchecked
-    return marshal((T) this);
+    return marshal(this, false);
+  }
+
+  public String pretty() throws MbfException {
+    return marshal(this, true);
   }
 
   protected static <T extends ApiType> String marshal(T obj) throws MbfException {
+    return marshal(obj, false);
+  }
+
+  protected static <T extends ApiType> String marshal(T obj, boolean pretty) throws MbfException {
     try {
-      return MarshalUtils.marshal(obj);
+      return pretty ? MarshalUtils.pretty(obj) : MarshalUtils.marshal(obj);
 
     } catch (Exception e) {
       throw new MbfException("Unable to marshal API object [" + obj + "]", e);
