@@ -14,6 +14,7 @@ import com.eyelinecom.whoisd.sads2.exception.NotFoundServiceException;
 import com.eyelinecom.whoisd.sads2.executors.connector.AbstractHTTPPushConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.LazyMessageConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
+import com.eyelinecom.whoisd.sads2.executors.connector.SADSInitializer;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
 import com.eyelinecom.whoisd.sads2.input.InputFile;
 import com.eyelinecom.whoisd.sads2.input.InputLocation;
@@ -397,9 +398,14 @@ public class MbfMessageConnector extends HttpServlet {
 
       } else if (cmd == WHO_IS) {
         final Message reply = msg.createReply(
-            "Application ID: " + bot.getAppId() + "." +
-                "\n\nSecret: " + bot.getAppSecret() + "." +
-                "\n\nService: " + serviceId + "."
+            StringUtils.join(
+                new String[] {
+                    "Application ID: " + bot.getAppId() + ".",
+                    "Secret: " + bot.getAppSecret() + ".",
+                    "Service: " + serviceId + ".",
+                    "Mobilizer instance: " + getRootUri()
+                },
+                "\n\n")
         );
         getClient().send(getSessionManager(serviceId), bot, reply);
 
@@ -526,6 +532,16 @@ public class MbfMessageConnector extends HttpServlet {
 
     private ProfileStorage getProfileStorage() throws Exception {
       return (ProfileStorage) getResource("profile-storage");
+    }
+
+    private String getRootUri() {
+      try {
+        final Properties mainProperties = SADSInitializer.getMainProperties();
+        return mainProperties.getProperty("root.uri");
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     private Log getLog(MbfWebhookRequest req) {
