@@ -16,7 +16,9 @@ import com.eyelinecom.whoisd.sads2.executors.connector.LazyMessageConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
 import com.eyelinecom.whoisd.sads2.input.InputFile;
+import com.eyelinecom.whoisd.sads2.input.InputLocation;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.LocationExtractor;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
@@ -31,6 +33,7 @@ import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.eyelinecom.whoisd.sads2.utils.ConnectorUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Logger;
@@ -344,6 +347,13 @@ public class MbfMessageConnector extends HttpServlet {
           file.setMediaType("photo");
           file.setUrl(url);
           rc.add(file);
+
+        } else if ("location".equals(contentType)) {
+          final Pair<Double, Double> latLon =
+              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
+          if (latLon != null) {
+            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
+          }
 
         } else {
           // TODO: determine mediaType.
