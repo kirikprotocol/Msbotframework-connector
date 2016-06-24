@@ -5,17 +5,47 @@ APP_SECRET="d1fd78109450494c8fe4f21d15b5d125"
 
 read -r -d '' DATA << EOF
 {
-  "text": "Hello",
-  "attachments": [
-    {
-      "actions": [
-        {
-          "title": "Okay",
-          "message": "Okay"
-        }
-      ]
+  "type":"Message",
+  "text":"foo bar",
+  "channelData":{
+    "attachment":{
+      "type":"template",
+      "payload":{
+        "template_type":"generic",
+        "elements": [
+          {
+            "title":"DPC Yellow Pages:\n
+            Please reply with keyword or choose from category",
+            "buttons":[
+              {
+                "type":"postback", "title":"Link 1", "payload":"Link 1"
+              },
+              {
+                "type":"postback", "title":"Link 2", "payload":"Link 2"
+              },
+              {
+                "type":"postback", "title":"Link 3", "payload":"Link 3"
+              }
+            ]
+          },
+          {
+            "title":".",
+            "buttons":[
+              {
+                "type":"postback", "title":"Link 4", "payload":"Link 4"
+              },
+              {
+                "type":"postback", "title":"Link 5", "payload":"Link 5"
+              },
+              {
+                "type":"postback", "title":"Link 6", "payload":"Link 6"
+              }
+            ]
+          }
+        ]
+      }
     }
-  ],
+  },
   "from": {
     "channelId": "facebook",
     "address": "1145788065463011",
