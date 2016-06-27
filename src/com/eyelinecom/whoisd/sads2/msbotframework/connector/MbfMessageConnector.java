@@ -27,11 +27,11 @@ import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
-import com.eyelinecom.whoisd.sads2.profile.ProfileStorage;
 import com.eyelinecom.whoisd.sads2.registry.ServiceConfig;
 import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
 import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.eyelinecom.whoisd.sads2.utils.ConnectorUtils;
+import com.eyelinecom.whoisd.sads2.wstorage.resource.DbProfileStorage;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -112,13 +112,22 @@ public class MbfMessageConnector extends HttpServlet {
               resp, 200, null, null, reply.marshal().getBytes(UTF_8));
           return;
 
-        case MESSAGE:
         case DELETE_USER_DATA:
         case BOT_ADDED_TO_CONVERSATION:
         case BOT_REMOVED_FROM_CONVERSATION:
         case USER_ADDED_TO_CONVERSATION:
         case USER_REMOVED_FROM_CONVERSATION:
         case END_OF_CONVERSATION:
+          // Don't support this, so just acknowledge and omit any further processing.
+          final SADSResponse rc = new SADSResponse();
+          rc.setStatus(200);
+          rc.setHeaders(Collections.<String, String>emptyMap());
+
+          ConnectorUtils.fillHttpResponse(resp, rc);
+
+          return;
+
+        case MESSAGE:
           break;
       }
 
@@ -191,6 +200,35 @@ public class MbfMessageConnector extends HttpServlet {
     }
     //</editor-fold>
 
+    @Override
+    public SADSResponse process(MbfWebhookRequest req) {
+      getProfileStorage().getContext().start();
+      try {
+        return super.process(req);
+
+      } finally {
+        getProfileStorage().getContext().close();
+      }
+    }
+
+    @Override
+    protected Runnable buildRunnable(final MbfWebhookRequest req,
+                                     final SADSRequest sadsRequest,
+                                     final Runnable runnable) {
+      return new Runnable() {
+        @Override
+        public void run() {
+          getProfileStorage().getContext().start();
+          try {
+            MbfMessageConnectorImpl.super
+                .buildRunnable(req, sadsRequest, runnable)
+                .run();
+          } finally {
+            getProfileStorage().getContext().close();
+          }
+        }
+      };
+    }
 
     /** Response to a WebHook update. */
     @Override
@@ -530,8 +568,13 @@ public class MbfMessageConnector extends HttpServlet {
       return serviceSessionManager.getSessionManager(FACEBOOK, serviceId);
     }
 
-    private ProfileStorage getProfileStorage() throws Exception {
-      return (ProfileStorage) getResource("profile-storage");
+    private DbProfileStorage getProfileStorage() {
+      try {
+        return (DbProfileStorage) getResource("profile-storage");
+
+      } catch (NotFoundResourceException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     private String getRootUri() {
