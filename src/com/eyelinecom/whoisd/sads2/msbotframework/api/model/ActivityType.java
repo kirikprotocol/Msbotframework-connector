@@ -15,67 +15,60 @@ import java.util.Map;
 import static java.util.Collections.unmodifiableMap;
 import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.apache.commons.lang3.StringUtils.remove;
+import static org.apache.commons.lang3.StringUtils.uncapitalize;
 import static org.apache.commons.lang3.StringUtils.upperCase;
 import static org.apache.commons.lang3.text.WordUtils.capitalizeFully;
 
 /**
- * Type of a message.
+ * Type of a activity.
+ *
  */
-public enum MessageType {
+public enum ActivityType {
 
   /**
-   * A simple communication between a user & bot
+   * Message from a user -> bot or bot -> User
    */
   MESSAGE,
 
   /**
-   * A system request to test system availability
+   * This notification is sent when the conversation's properties change,
+   * for example the topic name, or when user joins or leaves the group.
    */
-  PING,
+  CONVERSATION_UPDATE,
 
   /**
-   * The user has requested to have their data deleted.
+   * Bot added or removed to contact list. See <see cref="ContactRelationUpdateActionTypes"/> for possible values.
+   */
+  CONTACT_RELATION_UPDATE,
+
+  /**
+   * A from is typing.
+   */
+  TYPING,
+
+  /**
+   * Delete user data
    */
   DELETE_USER_DATA,
 
   /**
-   * The bot has been added to a conversation.
+   * Ping message.
    */
-  BOT_ADDED_TO_CONVERSATION,
+  PING;
 
-  /**
-   * The bot has been removed from a conversation.
-   */
-  BOT_REMOVED_FROM_CONVERSATION,
-
-  /**
-   * A user has joined a conversation monitored by the bot.
-   */
-  USER_ADDED_TO_CONVERSATION,
-
-  /**
-   * A user has left a conversation monitored by the bot.
-   */
-  USER_REMOVED_FROM_CONVERSATION,
-
-  /**
-   * The user has elected to end the current conversation.
-   */
-  END_OF_CONVERSATION;
-
-  private static final Map<String, MessageType> JSON_NAMES = unmodifiableMap(
-      new HashMap<String, MessageType>() {{
-        for (MessageType _ : MessageType.values()) {
+  private static final Map<String, ActivityType> JSON_NAMES = unmodifiableMap(
+      new HashMap<String, ActivityType>() {{
+        for (ActivityType _ : ActivityType.values()) {
           put(StringUtils.remove(_.name(), '_'), _);
         }
       }});
 
-  public static MessageType deserialize(String value) {
+  public static ActivityType deserialize(String value) {
     return isBlank(value) ? null : JSON_NAMES.get(upperCase(value));
   }
 
   public String serialize() {
-    return remove(capitalizeFully(name(), '_'), '_');
+    return remove(uncapitalize(capitalizeFully(name(), '_')), '_');
   }
 
 
@@ -83,10 +76,10 @@ public enum MessageType {
   //
   //
 
-  static class Serializer extends JsonSerializer<MessageType> {
+  static class Serializer extends JsonSerializer<ActivityType> {
 
     @Override
-    public void serialize(MessageType value,
+    public void serialize(ActivityType value,
                           JsonGenerator gen,
                           SerializerProvider serializers) throws IOException {
       gen.writeString(value.serialize());
@@ -98,12 +91,12 @@ public enum MessageType {
   //
   //
 
-  static class Deserializer extends JsonDeserializer<MessageType> {
+  static class Deserializer extends JsonDeserializer<ActivityType> {
 
     @Override
-    public MessageType deserialize(JsonParser p,
-                                   DeserializationContext ctxt) throws IOException {
-      return MessageType.deserialize(p.getValueAsString());
+    public ActivityType deserialize(JsonParser p,
+                                    DeserializationContext ctxt) throws IOException {
+      return ActivityType.deserialize(p.getValueAsString());
     }
   }
 }

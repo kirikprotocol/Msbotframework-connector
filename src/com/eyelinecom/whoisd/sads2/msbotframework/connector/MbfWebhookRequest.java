@@ -2,13 +2,13 @@ package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.common.StoredHttpRequest;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
-import static com.eyelinecom.whoisd.sads2.msbotframework.api.model.MessageType.MESSAGE;
+import static com.eyelinecom.whoisd.sads2.msbotframework.api.model.ActivityType.MESSAGE;
 import static com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils.parse;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
 
@@ -19,7 +19,7 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
  */
 public class MbfWebhookRequest extends StoredHttpRequest {
 
-  private Message message;
+  private Activity activity;
   private final String appId;
 
   MbfWebhookRequest(HttpServletRequest request) {
@@ -29,16 +29,16 @@ public class MbfWebhookRequest extends StoredHttpRequest {
     appId = parts[parts.length - 1];
   }
 
-  public Message asMessage() throws IOException, MbfException {
-    if (message == null) {
-      message = MarshalUtils.unmarshal(parse(getContent()), Message.class);
+  public Activity asMessage() throws IOException, MbfException {
+    if (activity == null) {
+      activity = MarshalUtils.unmarshal(parse(getContent()), Activity.class);
     }
 
-    return message;
+    return activity;
   }
 
   public String getMessageText() {
-    return message.getType() == MESSAGE ? trimToNull(message.getText()) : null;
+    return activity.getType() == MESSAGE ? trimToNull(activity.getText()) : null;
   }
 
   /**

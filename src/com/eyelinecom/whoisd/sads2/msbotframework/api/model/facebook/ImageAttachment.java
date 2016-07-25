@@ -1,5 +1,6 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook;
 
+
 public class ImageAttachment extends Attachment {
 
   /**

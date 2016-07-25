@@ -16,12 +16,8 @@ import com.eyelinecom.whoisd.sads2.executors.connector.LazyMessageConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSInitializer;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
-import com.eyelinecom.whoisd.sads2.input.InputFile;
-import com.eyelinecom.whoisd.sads2.input.InputLocation;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.LocationExtractor;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
@@ -33,8 +29,6 @@ import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.eyelinecom.whoisd.sads2.utils.ConnectorUtils;
 import com.eyelinecom.whoisd.sads2.wstorage.resource.DbProfileStorage;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Logger;
@@ -47,8 +41,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -61,11 +55,9 @@ import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SHOW_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.WHO_IS;
 import static com.eyelinecom.whoisd.sads2.executors.connector.LazyDialogueInitializer.DEFAULT_DELAYED_JOBS_POLL_SIZE;
 import static com.eyelinecom.whoisd.sads2.wstorage.profile.QueryRestrictions.property;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.commons.lang.StringUtils.equalsIgnoreCase;
-import static org.apache.commons.lang.StringUtils.trimToNull;
 
 public class MbfMessageConnector extends HttpServlet {
 
@@ -101,24 +93,19 @@ public class MbfMessageConnector extends HttpServlet {
     final MbfWebhookRequest request = new MbfWebhookRequest(req);
 
     try {
-      final Message message = request.asMessage();
+      final Activity activity = request.asMessage();
 
-      switch (message.getType()){
-        case PING:
-          // Platform heartbeat, no need to pass it through.
-          final Message reply = message.createReply("Pong");
+      switch (activity.getType()) {
 
-          ConnectorUtils.fillHttpResponse(
-              resp, 200, null, null, reply.marshal().getBytes(UTF_8));
-          return;
-
+        // Don't support this, so just acknowledge and omit any further processing:
+        case CONVERSATION_UPDATE:
+        case CONTACT_RELATION_UPDATE:
+        case TYPING:
         case DELETE_USER_DATA:
-        case BOT_ADDED_TO_CONVERSATION:
-        case BOT_REMOVED_FROM_CONVERSATION:
-        case USER_ADDED_TO_CONVERSATION:
-        case USER_REMOVED_FROM_CONVERSATION:
-        case END_OF_CONVERSATION:
-          // Don't support this, so just acknowledge and omit any further processing.
+
+        // Platform heartbeat, reply with HTTP-200.
+        case PING:
+        {
           final SADSResponse rc = new SADSResponse();
           rc.setStatus(200);
           rc.setHeaders(Collections.<String, String>emptyMap());
@@ -126,6 +113,7 @@ public class MbfMessageConnector extends HttpServlet {
           ConnectorUtils.fillHttpResponse(resp, rc);
 
           return;
+        }
 
         case MESSAGE:
           break;
@@ -258,16 +246,17 @@ public class MbfMessageConnector extends HttpServlet {
 
     @Override
     protected String getSubscriberId(MbfWebhookRequest req) throws Exception {
-      final Message msg = req.asMessage();
+      final Activity msg = req.asMessage();
+      final String channelId = msg.getChannelId();
 
       final String incoming = req.getMessageText();
-      if (ChatCommand.match(incoming, FACEBOOK) == CLEAR_PROFILE) {
+      if (ChatCommand.match(incoming, msg.getProtocol()) == CLEAR_PROFILE) {
         // Reset profile of the current user.
 
-        final String from = msg.getFrom().getAddress();
+        final String from = msg.getFrom().getId();
         final Profile profile = getProfileStorage()
             .query()
-            .where(property("mbf", "fb-id").eq(from))
+            .where(property("mbf-" + channelId, "id").eq(from))
             .get();
         if (profile != null) {
           profile.delete();
@@ -276,15 +265,18 @@ public class MbfMessageConnector extends HttpServlet {
 
       final Profile profile;
 
-      final String userId = msg.getFrom().getAddress();
+      final String userId = msg.getFrom().getId();
       if (userId != null) {
         profile = getProfileStorage()
             .query()
-            .where(property("mbf", "fb-id").eq(userId))
+            .where(property("mbf-" + channelId, "id").eq(userId))
             .getOrCreate();
 
-        final String safeSid = getServiceId(req).replace(".", "_");
-        profile.property("mbf", "fb-id-" + safeSid).set(msg.getTo().getAddress());
+        // Conversation ID.
+        profile.property("mbf-" + channelId, "chats", req.getAppId()).set(msg.getConversation().getId());
+
+        // Bot user ID.
+        profile.property("mbf-" + channelId, "bots", req.getAppId()).set(msg.getRecipient().getId());
 
       } else {
         profile = null;
@@ -320,7 +312,7 @@ public class MbfMessageConnector extends HttpServlet {
 
       try {
         // We might need an original message for constructing reply.
-        final Message msg = req.asMessage();
+        final Activity msg = req.asMessage();
         sadsRequest.getAttributes().put("mbf.message", msg);
 
         handleFileUpload(sadsRequest, req);
@@ -364,53 +356,59 @@ public class MbfMessageConnector extends HttpServlet {
     private List<? extends AbstractInputType> extractMedia(MbfWebhookRequest req)
         throws Exception {
 
-      final Message msg = req.asMessage();
+      final Activity msg = req.asMessage();
+//
+//      final MbfAttachment[] attachments = msg.getAttachments();
+//      if (ArrayUtils.isEmpty(attachments)) {
+//        return Collections.emptyList();
+//      }
+//
+//      final List<AbstractInputType> rc = new ArrayList<>();
+//
+//      for (MbfAttachment attachment : attachments) {
+//        final String url = trimToNull(attachment.getContentUrl());
+//        if (url == null) {
+//          // No content URL means this is not an attachment.
+//          continue;
+//        }
+//
+//        final String contentType = trimToNull(attachment.getContentType());
+//        if (contentType.startsWith("image")) {
+//          final InputFile file = new InputFile();
+//          file.setMediaType("photo");
+//          file.setUrl(url);
+//          rc.add(file);
+//
+//        } else if ("location".equals(contentType)) {
+//          final Pair<Double, Double> latLon =
+//              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
+//          if (latLon != null) {
+//            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
+//          }
+//
+//        } else {
+//          // TODO: determine mediaType.
+//          final InputFile file = new InputFile();
+//          file.setUrl(url);
+//          rc.add(file);
+//        }
+//      }
+//
+//      return Collections.unmodifiableList(rc);
 
-      final MbfAttachment[] attachments = msg.getAttachments();
-      if (ArrayUtils.isEmpty(attachments)) {
-        return Collections.emptyList();
-      }
-
-      final List<AbstractInputType> rc = new ArrayList<>();
-
-      for (MbfAttachment attachment : attachments) {
-        final String url = trimToNull(attachment.getContentUrl());
-        if (url == null) {
-          // No content URL means this is not an attachment.
-          continue;
-        }
-
-        final String contentType = trimToNull(attachment.getContentType());
-        if (contentType.startsWith("image")) {
-          final InputFile file = new InputFile();
-          file.setMediaType("photo");
-          file.setUrl(url);
-          rc.add(file);
-
-        } else if ("location".equals(contentType)) {
-          final Pair<Double, Double> latLon =
-              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
-          if (latLon != null) {
-            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
-          }
-
-        } else {
-          // TODO: determine mediaType.
-          final InputFile file = new InputFile();
-          file.setUrl(url);
-          rc.add(file);
-        }
-      }
-
-      return Collections.unmodifiableList(rc);
+      return Collections.emptyList();
     }
 
     @Override
     protected Protocol getRequestProtocol(ServiceConfig config,
                                           String subscriberId,
-                                          MbfWebhookRequest httpServletRequest) {
-      // Only FB is supported for now.
-      return FACEBOOK;
+                                          MbfWebhookRequest req) {
+      try {
+        return req.asMessage().getProtocol();
+
+      } catch (IOException | MbfException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     @Override
@@ -419,7 +417,7 @@ public class MbfMessageConnector extends HttpServlet {
                                    MbfWebhookRequest req) throws Exception {
 
       final String serviceId = config.getId();
-      final Message msg = req.asMessage();
+      final Activity msg = req.asMessage();
       final String incoming = req.getMessageText();
       final MbfBotDetails bot = getServiceRegistry().getBot(serviceId);
 
@@ -435,7 +433,8 @@ public class MbfMessageConnector extends HttpServlet {
         session = getSessionManager(serviceId).getSession(wnumber);
 
       } else if (cmd == WHO_IS) {
-        final Message reply = msg.createReply(
+        final Activity reply = msg.createReply(
+            new Date(),
             StringUtils.join(
                 new String[] {
                     "Application ID: " + bot.getAppId() + ".",
@@ -450,7 +449,7 @@ public class MbfMessageConnector extends HttpServlet {
       } else if (cmd == SHOW_PROFILE) {
         final Profile profile = getProfileStorage().find(wnumber);
 
-        final Message reply = msg.createReply(profile.dump().replace("\n", "\n\n"));
+        final Activity reply = msg.createReply(new Date(), profile.dump().replace("\n", "\n\n"));
 
         getClient().send(getSessionManager(serviceId), bot, reply);
       }

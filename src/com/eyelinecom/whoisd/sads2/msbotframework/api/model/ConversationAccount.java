@@ -1,11 +1,17 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
 
-import com.google.common.base.MoreObjects;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * Channel account information needed to route a message.
+ * Channel account information for a conversation.
  */
-public class ChannelAccount {
+public class ConversationAccount {
+
+  /**
+   * Is this a reference to a group.
+   */
+  @JsonProperty("isGroup")
+  private Boolean isGroup;
 
   /**
    * Channel id for the user or bot on this channel
@@ -18,11 +24,18 @@ public class ChannelAccount {
    */
   private String name;
 
-  public ChannelAccount() {}
+  public ConversationAccount() {}
 
-  public ChannelAccount(String id, String name) {
+  public ConversationAccount(String id) {
     this.id = id;
-    this.name = name;
+  }
+
+  public Boolean getGroup() {
+    return isGroup;
+  }
+
+  public void setGroup(Boolean group) {
+    isGroup = group;
   }
 
   public String getId() {
@@ -39,14 +52,5 @@ public class ChannelAccount {
 
   public void setName(String name) {
     this.name = name;
-  }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .omitNullValues()
-        .add("id", id)
-        .add("name", name)
-        .toString();
   }
 }

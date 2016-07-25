@@ -1,14 +1,13 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook;
 
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelAccount;
-import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Message;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
 import org.junit.Test;
 
 import java.io.IOException;
 
-import static com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelType.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Button.postback;
 import static java.util.Arrays.asList;
 import static junit.framework.Assert.assertEquals;
@@ -19,9 +18,9 @@ public class ChannelDataTest {
 
   @Test
   public void test1() throws MbfException, IOException {
-    final Message msg = new Message() {{
-      setFrom(new ChannelAccount(FACEBOOK, "123"));
-      setTo(new ChannelAccount(FACEBOOK, "456"));
+    final Activity msg = new Activity() {{
+      setFrom(new ChannelAccount("123", null));
+      setRecipient(new ChannelAccount("456", null));
     }};
 
     final GenericTemplate template = new GenericTemplate(
@@ -54,12 +53,10 @@ public class ChannelDataTest {
     assertEquals(
         "{\n" +
             "  \"from\" : {\n" +
-            "    \"channelId\" : \"facebook\",\n" +
-            "    \"address\" : \"123\"\n" +
+            "    \"id\" : \"123\"\n" +
             "  },\n" +
-            "  \"to\" : {\n" +
-            "    \"channelId\" : \"facebook\",\n" +
-            "    \"address\" : \"456\"\n" +
+            "  \"recipient\" : {\n" +
+            "    \"id\" : \"456\"\n" +
             "  },\n" +
             "  \"channelData\" : {\n" +
             "    \"attachment\" : {\n" +
@@ -103,7 +100,7 @@ public class ChannelDataTest {
             "}",
         msg.pretty());
 
-    final Message unmarshalled = MarshalUtils.unmarshal(msg.pretty(), Message.class);
+    final Activity unmarshalled = MarshalUtils.unmarshal(msg.pretty(), Activity.class);
     assertNull(
         "Channel data should be ignored during unmarshalling as it's of no use to us" +
             " (and this also simplifies JSON mapping)",
