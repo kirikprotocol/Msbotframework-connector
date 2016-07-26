@@ -1,5 +1,6 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.resource;
 
+import com.eyelinecom.whoisd.sads2.Protocol;
 import com.eyelinecom.whoisd.sads2.common.HttpDataLoader;
 import com.eyelinecom.whoisd.sads2.common.Loader.Entity;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
@@ -18,6 +19,7 @@ import static com.eyelinecom.whoisd.sads2.common.HttpLoader.METHOD_POST;
 import static com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils.unmarshal;
 import static java.net.URLEncoder.encode;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 
 public class BotApiClient {
@@ -25,6 +27,7 @@ public class BotApiClient {
   private static final Logger log = Logger.getLogger(BotApiClient.class);
 
   private static final String API_ROOT = "https://api.botframework.com";
+  private static final String SKYPE_API_ROOT = "https://skype.botframework.com";
 
   private final String appId;
   private final String appSecret;
@@ -82,8 +85,27 @@ public class BotApiClient {
   public Activity send(String token, Activity msg) throws MbfException {
     Preconditions.checkNotNull(msg);
 
+    final String serviceUrl;
+    {
+      final String provided = msg.getServiceUrl();
+      if (isNotBlank(provided)) {
+        serviceUrl =
+            provided.endsWith("/") ? provided : provided.substring(0, provided.length() - 1);
+
+      } else {
+        serviceUrl = (msg.getProtocol() == Protocol.SKYPE ? SKYPE_API_ROOT : API_ROOT);
+      }
+    }
+
+    return send(token, serviceUrl, msg);
+  }
+
+  public Activity send(String token, String apiRoot, Activity msg) throws MbfException {
+    final String conversationResource =
+        apiRoot + "/v3/conversations/" + msg.getConversation().getId() + "/activities";
+
     try {
-      final Entity rc = post(token, getMessagesApi(), msg.marshal());
+      final Entity rc = post(token, conversationResource, msg.marshal());
       return unmarshal(new String(rc.getBuffer(), UTF_8), Activity.class);
 
     } catch (Exception e) {
@@ -106,35 +128,4 @@ public class BotApiClient {
         METHOD_POST);
   }
 
-  private Entity get(final String token, String path) throws Exception {
-    return loader.load(
-        path,
-        new HashMap<String, String>() {{
-          put("Authorization", "Bearer " + token);
-          put(
-              "Ocp-Apim-Subscription-Key",
-              appSecret);
-        }});
-  }
-
-
-  //
-  //  Resource locations.
-  //
-
-  private String getMessagesApi() {
-    return API_ROOT + "/bot/v1.0/messages";
-  }
-
-  private String getUserDataApi(String userId) {
-    return API_ROOT + "/bot/v1.0/bots/" + appId + "/users/" + userId;
-  }
-
-  private String getConversationDataApi(String conversationId) {
-    return API_ROOT + "/bot/v1.0/bots/" + appId + "/conversations/" + conversationId;
-  }
-
-  private String getConversationUserDataApi(String conversationId, String userId) {
-    return API_ROOT + "/bot/v1.0/bots/" + appId + "/conversations/" + conversationId + "/users/" + userId;
-  }
 }

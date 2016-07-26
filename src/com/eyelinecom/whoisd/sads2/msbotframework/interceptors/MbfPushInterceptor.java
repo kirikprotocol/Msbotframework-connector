@@ -26,7 +26,6 @@ import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
-import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.StringUtils;
@@ -46,6 +45,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.getAttributes;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.Collections2.transform;
@@ -120,8 +120,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         buttons == null && doc.getRootElement().elements("input").isEmpty() &&
             !getAttributes(doc.getRootElement()).getBoolean("mbf.keep.session").or(false);
 
-    final SessionManager sessionManager =
-        this.sessionManager.getSessionManager(request.getProtocol(), serviceId);
     final Session session = request.getSession();
 
     if (!shouldCloseSession) {
@@ -135,47 +133,56 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
       final MbfBotDetails bot = serviceRegistry.getBot(serviceId);
 
-      final Activity initialActivity =
-          (Activity) request.getAttributes().get("mbf.message");
+      final Activity activity;
+      {
 
-      if (initialActivity == null) {
-        // PUSH request, so rely on Profile to be initialized w/ all the necessary stuff.
-        final String protocolName = request.getProtocol().getProtocolName();
+        final Activity initialActivity =
+            (Activity) request.getAttributes().get("mbf.message");
 
-        final Profile profile = request.getProfile();
+        if (initialActivity != null) {
+          activity = initialActivity.createReply(new Date());
 
-        final Activity push = new Activity() {{
-          setType(ActivityType.MESSAGE);
-          setFrom(
-              new ChannelAccount(
-                  profile.property("mbf-" + protocolName, "bots", bot.getAppId()).getValue(),
-                  null
-              )
-          );
-          setRecipient(
-              new ChannelAccount(
-                  profile.property("mbf-" + protocolName, "id").getValue(),
-                  null
-              )
-          );
+        } else {
+          // PUSH request, so rely on Profile to be initialized w/ all the necessary stuff.
+          final String protocolName = request.getProtocol().getProtocolName();
 
-          setConversation(
-              new ConversationAccount(
-                  profile.property("mbf-" + protocolName, "chats").getValue()
-              )
-          );
-        }};
+          final Profile profile = request.getProfile();
 
-        fillContent(push, text, request, doc);
+          activity = new Activity() {{
+            setType(ActivityType.MESSAGE);
+            setFrom(
+                new ChannelAccount(
+                    checkNotNull(
+                        profile.property("mbf-" + protocolName, "bots", bot.getAppId()).getValue()
+                    )
+                )
+            );
+            setRecipient(
+                new ChannelAccount(
+                    checkNotNull(
+                      profile.property("mbf-" + protocolName, "id").getValue()
+                    )
+                )
+            );
+            setConversation(
+                new ConversationAccount(
+                    checkNotNull(
+                      profile.property("mbf-" + protocolName, "chats").getValue()
+                    )
+                )
+            );
 
-        client.send(sessionManager, bot, push);
+            setChannelId(Activity.asChannelId(request.getProtocol()));
+          }};
+        }
 
-      } else {
-        final Activity reply = initialActivity.createReply(new Date());
-        fillContent(reply, text, request, doc);
-
-        client.send(sessionManager, bot, reply);
       }
+
+      fillContent(activity, text, request, doc);
+      client.send(
+          sessionManager.getSessionManager(request.getProtocol(), serviceId),
+          bot,
+          activity);
     }
 
     if (shouldCloseSession) {
@@ -194,17 +201,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     msg.setText(text);
 
-    final List<MbfAttachment> attachments =
-        extractAttachments(msg, request, doc);
-
-    msg.setAttachments(attachments);
-  }
-
-  private List<MbfAttachment> extractAttachments(
-      Activity msg, final SADSRequest request, final Document doc) {
-
-    final List<MbfAttachment> target =
-        new ArrayList<>();
+    final List<MbfAttachment> attachments = new ArrayList<>();
 
     final List<Element> buttons = getKeyboard(doc);
     if (isNotEmpty(buttons)) {
@@ -213,7 +210,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         actions.add(button.getTextTrim());
       }
 
-      target.add(HeroCard.fromOptions(msg.getText(), actions));
+      attachments.add(HeroCard.fromOptions(msg.getText(), actions));
       msg.setText(null);
     }
 
@@ -223,10 +220,10 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       final MbfAttachmentConverter converter =
           new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
 
-      target.addAll(filter(transform(fileAttachments, converter), notNull()));
+      attachments.addAll(filter(transform(fileAttachments, converter), notNull()));
     }
 
-    return target;
+    msg.setAttachments(attachments);
   }
 
   /**

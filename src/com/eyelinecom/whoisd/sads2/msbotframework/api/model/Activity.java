@@ -31,7 +31,7 @@ public class Activity extends ApiType<Activity> {
    * Time when message was sent.
    * Example: {@literal 2016-07-18T12:56:35.242Z}.
    */
-  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+  @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'")
   private Date timestamp;
 
   /**
@@ -125,6 +125,7 @@ public class Activity extends ApiType<Activity> {
    * Collection of Entity which contain metadata about this activity
    * (each is typed)
    */
+  @JsonProperty
   private Entity[] entities;
 
   /**
@@ -302,6 +303,11 @@ public class Activity extends ApiType<Activity> {
     this.entities = entities;
   }
 
+  @JsonIgnore
+  public void setEntities(List<Entity> entities) {
+    this.setEntities(entities.toArray(new Entity[0]));
+  }
+
   @JsonProperty
   public ChannelData getChannelData() {
     return channelData;
@@ -340,6 +346,10 @@ public class Activity extends ApiType<Activity> {
     // Don't need to send in a reply.
     reply.getConversation().setGroup(null);
 
+    // Not required according to the spec, but helps in async pushes.
+    reply.setChannelId(this.getChannelId());
+    reply.setServiceUrl(this.getServiceUrl());
+
     return reply;
   }
 
@@ -347,6 +357,26 @@ public class Activity extends ApiType<Activity> {
     final Activity reply = createReply(now);
     reply.setText(replyText);
     return reply;
+  }
+
+  public Protocol getProtocol() {
+    return asProtocol(getChannelId());
+  }
+
+
+  //
+  //
+
+  public static String asChannelId(Protocol protocol) {
+    if (protocol == null) {
+      return null;
+    }
+
+    switch (protocol) {
+      case SKYPE:     return "skype";
+      case FACEBOOK:  return "facebook";
+      default:        return null;
+    }
   }
 
   public static Protocol asProtocol(String channelId) {
@@ -365,7 +395,5 @@ public class Activity extends ApiType<Activity> {
     return null;
   }
 
-  public Protocol getProtocol() {
-    return asProtocol(getChannelId());
-  }
+
 }

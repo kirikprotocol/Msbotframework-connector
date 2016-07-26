@@ -25,6 +25,10 @@ public class ChannelAccount {
     this.name = name;
   }
 
+  public ChannelAccount(String id) {
+    this(id, null);
+  }
+
   public String getId() {
     return id;
   }

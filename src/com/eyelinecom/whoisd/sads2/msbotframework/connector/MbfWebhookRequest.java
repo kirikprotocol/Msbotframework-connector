@@ -4,6 +4,7 @@ import com.eyelinecom.whoisd.sads2.common.StoredHttpRequest;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
+import com.google.common.base.MoreObjects;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
@@ -46,5 +47,14 @@ public class MbfWebhookRequest extends StoredHttpRequest {
    */
   public String getAppId() {
     return appId;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .omitNullValues()
+        .add("appId", appId)
+        .add("activity", activity)
+        .toString();
   }
 }

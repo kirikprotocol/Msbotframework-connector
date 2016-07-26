@@ -39,6 +39,15 @@ public class MbfApiImpl implements MbfApi {
                        MbfBotDetails bot,
                        Activity activity) throws MbfException {
 
+    return send(sessionManager, activity.getServiceUrl(), bot, activity);
+  }
+
+  @Override
+  public Activity send(SessionManager sessionManager,
+                       String apiRoot,
+                       MbfBotDetails bot,
+                       Activity activity) throws MbfException {
+
     messagesPerSecondLimit.acquire();
 
     final BotApiClient client = getClient(bot);
@@ -48,7 +57,7 @@ public class MbfApiImpl implements MbfApi {
       bot.setToken(authToken.getKey(), authToken.getValue());
     }
 
-    return client.send(bot.getToken(), activity);
+    return client.send(bot.getToken(), apiRoot, activity);
   }
 
   @Override
