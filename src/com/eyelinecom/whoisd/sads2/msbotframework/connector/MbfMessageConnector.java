@@ -16,8 +16,12 @@ import com.eyelinecom.whoisd.sads2.executors.connector.LazyMessageConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSInitializer;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
+import com.eyelinecom.whoisd.sads2.input.InputFile;
+import com.eyelinecom.whoisd.sads2.input.InputLocation;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Entity;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
@@ -41,6 +45,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -48,7 +53,6 @@ import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.CLEAR_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.INVALIDATE_SESSION;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SHOW_PROFILE;
@@ -58,6 +62,7 @@ import static com.eyelinecom.whoisd.sads2.wstorage.profile.QueryRestrictions.pro
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.commons.lang.StringUtils.equalsIgnoreCase;
+import static org.apache.commons.lang3.StringUtils.trimToNull;
 
 public class MbfMessageConnector extends HttpServlet {
 
@@ -357,46 +362,52 @@ public class MbfMessageConnector extends HttpServlet {
         throws Exception {
 
       final Activity msg = req.asMessage();
-//
-//      final MbfAttachment[] attachments = msg.getAttachments();
-//      if (ArrayUtils.isEmpty(attachments)) {
-//        return Collections.emptyList();
-//      }
-//
-//      final List<AbstractInputType> rc = new ArrayList<>();
-//
-//      for (MbfAttachment attachment : attachments) {
-//        final String url = trimToNull(attachment.getContentUrl());
-//        if (url == null) {
-//          // No content URL means this is not an attachment.
-//          continue;
-//        }
-//
-//        final String contentType = trimToNull(attachment.getContentType());
-//        if (contentType.startsWith("image")) {
-//          final InputFile file = new InputFile();
-//          file.setMediaType("photo");
-//          file.setUrl(url);
-//          rc.add(file);
-//
-//        } else if ("location".equals(contentType)) {
-//          final Pair<Double, Double> latLon =
-//              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
-//          if (latLon != null) {
-//            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
-//          }
-//
-//        } else {
-//          // TODO: determine mediaType.
-//          final InputFile file = new InputFile();
-//          file.setUrl(url);
-//          rc.add(file);
-//        }
-//      }
-//
-//      return Collections.unmodifiableList(rc);
 
-      return Collections.emptyList();
+      final List<AbstractInputType> rc = new ArrayList<>();
+
+      if (msg.getAttachments() != null && msg.getAttachments().length != 0) {
+        for (MbfAttachment attachment : msg.getAttachments()) {
+          final String url = trimToNull(attachment.getContentUrl());
+          if (url == null) {
+            // No content URL means this is not an attachment.
+            continue;
+          }
+
+          final String contentType = trimToNull(attachment.getContentType());
+          if (contentType.startsWith("image")) {
+            final InputFile file = new InputFile();
+            file.setMediaType("photo");
+            file.setUrl(url);
+            rc.add(file);
+
+            //        } else if ("location".equals(contentType)) {
+            //          final Pair<Double, Double> latLon =
+            //              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
+            //          if (latLon != null) {
+            //            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
+            //          }
+            //
+            //        } else {
+            //          // TODO: determine mediaType.
+            //          final InputFile file = new InputFile();
+            //          file.setUrl(url);
+            //          rc.add(file);
+          }
+        }
+      }
+
+      if (msg.getEntities() != null && msg.getEntities().length != 0) {
+        for (Entity entity : msg.getEntities()) {
+
+          if (entity instanceof Entity.Place && ((Entity.Place) entity).getGeo() != null) {
+            final Entity.GeoCoordinates geo = ((Entity.Place) entity).getGeo();
+            rc.add(new InputLocation(geo.getLongitude(), geo.getLatitude()));
+          }
+        }
+
+      }
+
+      return Collections.unmodifiableList(rc);
     }
 
     @Override
@@ -420,17 +431,17 @@ public class MbfMessageConnector extends HttpServlet {
       final Activity msg = req.asMessage();
       final String incoming = req.getMessageText();
       final MbfBotDetails bot = getServiceRegistry().getBot(serviceId);
+      final Protocol protocol = getRequestProtocol(config, wnumber, req);
+      final SessionManager sessionManager = getSessionManager(protocol, serviceId);
 
-      Session session = getSessionManager(serviceId).getSession(wnumber);
+      Session session = sessionManager.getSession(wnumber);
 
-      final ChatCommand cmd = ChatCommand.match(
-          incoming,
-          getRequestProtocol(config, wnumber, req));
+      final ChatCommand cmd = ChatCommand.match(incoming, protocol);
 
       if (cmd == INVALIDATE_SESSION) {
         // Invalidate the current session.
         session.close();
-        session = getSessionManager(serviceId).getSession(wnumber);
+        session = sessionManager.getSession(wnumber);
 
       } else if (cmd == WHO_IS) {
         final Activity reply = msg.createReply(
@@ -444,16 +455,15 @@ public class MbfMessageConnector extends HttpServlet {
                 },
                 "\n\n")
         );
-        getClient().send(getSessionManager(serviceId), bot, reply);
+        getClient().send(sessionManager, bot, reply);
 
       } else if (cmd == SHOW_PROFILE) {
         final Profile profile = getProfileStorage().find(wnumber);
 
         final Activity reply = msg.createReply(new Date(), profile.dump().replace("\n", "\n\n"));
 
-        getClient().send(getSessionManager(serviceId), bot, reply);
+        getClient().send(sessionManager, bot, reply);
       }
-
 
       final String prevUri = (String) session.getAttribute(ATTR_SESSION_PREVIOUS_PAGE_URI);
       if (prevUri == null) {
@@ -561,10 +571,10 @@ public class MbfMessageConnector extends HttpServlet {
       return (MbfApi) getResource("msbotframework-api");
     }
 
-    private SessionManager getSessionManager(String serviceId) throws Exception {
+    private SessionManager getSessionManager(Protocol protocol, String serviceId) throws Exception {
       final ServiceSessionManager serviceSessionManager =
           (ServiceSessionManager) getResource("session-manager");
-      return serviceSessionManager.getSessionManager(FACEBOOK, serviceId);
+      return serviceSessionManager.getSessionManager(protocol, serviceId);
     }
 
     private DbProfileStorage getProfileStorage() {

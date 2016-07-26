@@ -128,4 +128,67 @@ public class ActivityTest {
     MarshalUtils.unmarshal(msg, Activity.class);
   }
 
+  @Test
+  public void test5() throws Exception {
+    final String msg = "{\n" +
+        "  \"type\": \"message\",\n" +
+        "  \"id\": \"mid.1469537386556:c43c4c69c4f32b6037\",\n" +
+        "  \"timestamp\": \"2016-07-26T12:49:56.6978028Z\",\n" +
+        "  \"serviceUrl\": \"https://facebook.botframework.com\",\n" +
+        "  \"channelId\": \"facebook\",\n" +
+        "  \"from\": {\n" +
+        "    \"id\": \"1071173859631252\",\n" +
+        "    \"name\": \"Andy Belsky\"\n" +
+        "  },\n" +
+        "  \"conversation\": {\n" +
+        "    \"isGroup\": false,\n" +
+        "    \"id\": \"1071173859631252-878405072264349\"\n" +
+        "  },\n" +
+        "  \"recipient\": {\n" +
+        "    \"id\": \"878405072264349\",\n" +
+        "    \"name\": \"AgentMistyFerret\"\n" +
+        "  },\n" +
+        "  \"attachments\": [],\n" +
+        "  \"entities\": [\n" +
+        "    {\n" +
+        "      \"geo\": {\n" +
+        "        \"elevation\": 0.0,\n" +
+        "        \"latitude\": 54.863197326660156,\n" +
+        "        \"longitude\": 83.090248107910156,\n" +
+        "        \"type\": \"GeoCoordinates\"\n" +
+        "      },\n" +
+        "      \"type\": \"Place\"\n" +
+        "    }\n" +
+        "  ],\n" +
+        "  \"channelData\": {\n" +
+        "    \"sender\": {\n" +
+        "      \"id\": \"1071173859631252\"\n" +
+        "    },\n" +
+        "    \"recipient\": {\n" +
+        "      \"id\": \"878405072264349\"\n" +
+        "    },\n" +
+        "    \"timestamp\": 1469537386728,\n" +
+        "    \"message\": {\n" +
+        "      \"mid\": \"mid.1469537386556:c43c4c69c4f32b6037\",\n" +
+        "      \"seq\": 133,\n" +
+        "      \"attachments\": [\n" +
+        "        {\n" +
+        "          \"type\": \"location\",\n" +
+        "          \"payload\": {\n" +
+        "            \"coordinates\": {\n" +
+        "              \"lat\": 54.8631973,\n" +
+        "              \"long\": 83.09025\n" +
+        "            }\n" +
+        "          },\n" +
+        "          \"title\": \"Andy's Location\",\n" +
+        "          \"url\": \"https://www.facebook.com/l.php?u=https%3A%2F%2Fwww.bing.com%2Fmaps%2Fdefault.aspx%3Fv%3D2%26pc%3DFACEBK%26mid%3D8100%26where1%3D54.863197180009%252C%2B83.090245388682%26FORM%3DFBKPL1%26mkt%3Den-US&h=iAQHB86VA&s=1&enc=AZMOP-HrPsNHqndGBmwdN084a6uqE5IwEUi_0PQn4fE0s5Kv95zkvsk0FE3BgadNZNql3CuyX9wdRKmkEqRQMcFUQT6GratWvNOYlUpmahJ9Ow\"\n" +
+        "        }\n" +
+        "      ]\n" +
+        "    }\n" +
+        "  }\n" +
+        "}";
+
+    MarshalUtils.unmarshal(msg, Activity.class);
+  }
+
 }

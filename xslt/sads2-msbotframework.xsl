@@ -73,6 +73,7 @@
     <xsl:variable name="totalRows" select="count(//navigation)"/>
     <xsl:variable name="row" select="count(../preceding-sibling::navigation) + 1"/>
     <xsl:variable name="attributes" select="../@attributes"/>
+    <xsl:variable name="navLinksCount" select="count(//*/navigation[@id]/link)"/>
 
     <xsl:if
         test="count(//*[@navigationId])=0 or count(parent::navigation[@id])=0 or count(parent::navigation[@id])!=0 and parent::navigation/@id!=$formId ">
@@ -85,6 +86,11 @@
               <xsl:value-of select="$row"/>
             </xsl:attribute>
           </xsl:if>
+
+          <!-- Add link shortcut. -->
+          <xsl:attribute name="index">
+            <xsl:value-of select="position() - $navLinksCount"/>
+          </xsl:attribute>
 
           <xsl:if test="$attributes">
             <xsl:attribute name="attributes">
@@ -182,6 +188,12 @@
     <xsl:variable name="paramName" select="@name"/>
     <xsl:for-each select="option">
       <button>
+
+        <!-- Add link shortcut. -->
+        <xsl:attribute name="index">
+          <xsl:value-of select="position()"/>
+        </xsl:attribute>
+
         <xsl:attribute name="href">
           <xsl:choose>
             <xsl:when test="contains($formPageId,'?')">

@@ -20,12 +20,18 @@ import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ChannelAccount;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.ConversationAccount;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.attachments.HeroCard;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Bubble;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Button;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.FacebookChannelData;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.GenericTemplate;
+import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.TemplateAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.connector.MbfMessageConnector;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
+import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.commons.lang.StringUtils;
@@ -44,11 +50,15 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
+import static com.eyelinecom.whoisd.sads2.Protocol.SKYPE;
 import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.getAttributes;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.Collections2.transform;
+import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Lists.partition;
 import static org.apache.commons.collections.CollectionUtils.isNotEmpty;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
 
@@ -197,30 +207,84 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
                            SADSRequest request,
                            Document doc) {
 
-    final int ACTIONS_PER_GROUP = 3;
-
     msg.setText(text);
 
     final List<MbfAttachment> attachments = new ArrayList<>();
 
-    final List<Element> buttons = getKeyboard(doc);
-    if (isNotEmpty(buttons)) {
-      final List<String> actions = new ArrayList<>();
-      for (Element button : buttons) {
-        actions.add(button.getTextTrim());
+    // Keyboard.
+    {
+      final List<Element> buttons = getKeyboard(doc);
+      if (isNotEmpty(buttons)) {
+
+        final List<String> labels = new ArrayList<String>() {{
+          for (Element _ : buttons) add(_.getTextTrim());
+        }};
+
+        if (request.getProtocol() == SKYPE) {
+          // No cards for Skype yet, so fall back to plain text.
+          final String textKeyboard = getTextKeyboardMd(buttons);
+          msg.setText(msg.getText() + "\n\n" + textKeyboard);
+
+        } else if (request.getProtocol() == FACEBOOK) {
+
+          final int ACTIONS_PER_GROUP = 3;
+
+          if (labels.size() > ACTIONS_PER_GROUP) {
+            // A single bubble cannot contain more than 3 links, so build a customized carousel
+            // using `Generic' FB template here.
+            final List<Bubble> bubbles = new ArrayList<Bubble>() {{
+              final List<List<String>> parts = partition(labels, ACTIONS_PER_GROUP);
+              for (int i = 0; i < parts.size(); i++) {
+                final boolean firstBubble = i == 0;
+                final List<String> actions = parts.get(i);
+
+                add(new Bubble() {{
+                  setTitle(firstBubble ? text : ".");
+                  setButtons(newArrayList(transform(actions,
+                      new Function<String, Button>() {
+                        @Override public Button apply(String _) { return Button.postback(_); }
+                      }))
+                  );
+                }});
+              }
+            }};
+
+            final GenericTemplate template = new GenericTemplate(bubbles);
+            msg.setChannelData(
+                new FacebookChannelData() {{
+                  setAttachment(new TemplateAttachment(template));
+                }}
+            );
+
+            msg.setText(null);
+
+          } else {
+            // Seems to be the desired way to post messages w/ links.
+            attachments.add(HeroCard.fromOptions(msg.getText(), labels));
+
+            // Clear the text we've set earlier as it is already in HeroCard.
+            msg.setText(null);
+          }
+
+
+        } else {
+          attachments.add(HeroCard.fromOptions(msg.getText(), labels));
+          msg.setText(null);
+        }
+
       }
 
-      attachments.add(HeroCard.fromOptions(msg.getText(), actions));
-      msg.setText(null);
     }
 
     // File attachments.
-    final Collection<Attachment> fileAttachments = Attachment.extract(log, doc);
-    if (isNotEmpty(fileAttachments)) {
-      final MbfAttachmentConverter converter =
-          new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
+    {
+      final Collection<Attachment> fileAttachments = Attachment.extract(log, doc);
+      if (isNotEmpty(fileAttachments)) {
+        final MbfAttachmentConverter converter =
+            new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
 
-      attachments.addAll(filter(transform(fileAttachments, converter), notNull()));
+        attachments.addAll(filter(transform(fileAttachments, converter), notNull()));
+      }
     }
 
     msg.setAttachments(attachments);

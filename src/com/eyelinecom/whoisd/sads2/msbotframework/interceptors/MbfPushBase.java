@@ -20,7 +20,7 @@ public abstract class MbfPushBase extends BlankInterceptor {
     return isEmpty(buttons) ? null : buttons;
   }
 
-  public static String getTextKeyboard(List<Element> buttons) {
+  public static String getTextKeyboardMd(List<Element> buttons) {
     if (isEmpty(buttons)) {
       return null;
     }
@@ -28,8 +28,13 @@ public abstract class MbfPushBase extends BlankInterceptor {
     final StringBuilder buf = new StringBuilder();
 
     for (Element button : buttons) {
-      buf.append(button.attributeValue("index")).append("> ");
-      buf.append(button.getTextTrim()).append("\n");
+      buf
+          .append(button.attributeValue("index"))
+          .append("> ")
+          .append(button.getTextTrim());
+
+      // Double LF for MD compatibility.
+      buf.append("\n\n");
     }
 
     return buf.toString();
