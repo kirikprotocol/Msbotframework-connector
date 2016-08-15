@@ -139,7 +139,6 @@
           <root url="jar://$USER_HOME$/.ivy2/cache/emma/emma/jars/emma-2.1.5320.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/emma/emma_ant/jars/emma_ant-2.1.5320.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.jsoup/jsoup/jars/jsoup-1.7.2.jar!/" />
-          <root url="jar://$USER_HOME$/.ivy2/cache/mobi.eyeline.utils/db-template/jars/db-template-0.02.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/mobi.eyeline.esdp/pvss/jars/pvss-3.0.13.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/mobi.eyeline.util/utils/jars/utils-1.0.64.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/com.google.guava/guava/bundles/guava-19.0.jar!/" />
@@ -147,6 +146,7 @@
           <root url="jar://$USER_HOME$/.ivy2/cache/com.google.errorprone/error_prone_annotations/jars/error_prone_annotations-2.0.2.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/com.google.j2objc/j2objc-annotations/jars/j2objc-annotations-0.1.jar!/" />
           <root url="jar://$USER_HOME$/.ivy2/cache/org.codehaus.mojo/animal-sniffer-annotations/jars/animal-sniffer-annotations-1.14.jar!/" />
+          <root url="jar://$USER_HOME$/.ivy2/cache/mobi.eyeline.utils/db-template/jars/db-template-0.03.jar!/" />
         </CLASSES>
         <JAVADOC>
           <root url="jar://$USER_HOME$/.ivy2/cache/commons-collections/commons-collections/javadocs/commons-collections-3.2.1-javadoc.jar!/" />
