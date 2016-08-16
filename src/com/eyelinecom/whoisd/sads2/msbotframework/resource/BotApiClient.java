@@ -1,13 +1,11 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.resource;
 
-import com.eyelinecom.whoisd.sads2.Protocol;
 import com.eyelinecom.whoisd.sads2.common.HttpDataLoader;
 import com.eyelinecom.whoisd.sads2.common.Loader.Entity;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
@@ -17,17 +15,19 @@ import java.util.HashMap;
 
 import static com.eyelinecom.whoisd.sads2.common.HttpLoader.METHOD_POST;
 import static com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils.unmarshal;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.net.URLEncoder.encode;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.apache.commons.lang3.StringUtils.join;
 
 public class BotApiClient {
 
   private static final Logger log = Logger.getLogger(BotApiClient.class);
 
-  private static final String API_ROOT = "https://api.botframework.com";
-  private static final String SKYPE_API_ROOT = "https://skype.botframework.com";
+  private static final String API_ROOT        = "https://api.botframework.com";
+
+  private static final String SKYPE_API_ROOT  = "https://skype.botframework.com";
+  private static final String FB_API_ROOT     = "https://facebook.botframework.com";
 
   private final String appId;
   private final String appSecret;
@@ -82,27 +82,28 @@ public class BotApiClient {
     }
   }
 
-  public Activity send(String token, Activity msg) throws MbfException {
-    Preconditions.checkNotNull(msg);
+  private String guessServiceUrl(Activity msg) {
+    checkArgument(msg.getServiceUrl() == null,
+        "Internal service URL should be used if available");
 
-    final String serviceUrl;
-    {
-      final String provided = msg.getServiceUrl();
-      if (isNotBlank(provided)) {
-        serviceUrl =
-            provided.endsWith("/") ? provided : provided.substring(0, provided.length() - 1);
+    switch (msg.getProtocol()) {
+      case SKYPE:     return SKYPE_API_ROOT;
+      case FACEBOOK:  return FB_API_ROOT;
 
-      } else {
-        serviceUrl = (msg.getProtocol() == Protocol.SKYPE ? SKYPE_API_ROOT : API_ROOT);
-      }
+      default:
+        log.warn("Cannot determine API ROOT for activity [" + msg + "]");
+        return API_ROOT;
     }
-
-    return send(token, serviceUrl, msg);
   }
 
-  public Activity send(String token, String apiRoot, Activity msg) throws MbfException {
+  public Activity send(String token, String serviceUrl, Activity msg) throws MbfException {
+    if (serviceUrl == null) {
+      serviceUrl = guessServiceUrl(msg);
+      msg.setServiceUrl(serviceUrl);
+    }
+
     final String conversationResource =
-        apiRoot + "/v3/conversations/" + msg.getConversation().getId() + "/activities";
+        serviceUrl + "/v3/conversations/" + msg.getConversation().getId() + "/activities";
 
     try {
       final Entity rc = post(token, conversationResource, msg.marshal());

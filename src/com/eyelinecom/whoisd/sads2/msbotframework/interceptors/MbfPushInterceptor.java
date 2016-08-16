@@ -177,7 +177,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
             setConversation(
                 new ConversationAccount(
                     checkNotNull(
-                      profile.property("mbf-" + protocolName, "chats").getValue()
+                      profile.property("mbf-" + protocolName, "chats", bot.getAppId()).getValue()
                     )
                 )
             );
