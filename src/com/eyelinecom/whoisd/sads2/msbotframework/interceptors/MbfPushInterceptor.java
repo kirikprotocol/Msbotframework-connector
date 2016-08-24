@@ -25,7 +25,6 @@ import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.Button;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.FacebookChannelData;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.GenericTemplate;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.facebook.TemplateAttachment;
-import com.eyelinecom.whoisd.sads2.msbotframework.connector.MbfMessageConnector;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
@@ -53,6 +52,7 @@ import java.util.Properties;
 import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.Protocol.SKYPE;
 import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.getAttributes;
+import static com.eyelinecom.whoisd.sads2.executors.connector.ProfileEnabledMessageConnector.ATTR_SESSION_PREVIOUS_PAGE_URI;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
@@ -135,7 +135,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     if (!shouldCloseSession) {
       session.setAttribute(SADSExecutor.ATTR_SESSION_PREVIOUS_PAGE, doc);
       session.setAttribute(
-          MbfMessageConnector.ATTR_SESSION_PREVIOUS_PAGE_URI,
+          ATTR_SESSION_PREVIOUS_PAGE_URI,
           response.getAttributes().get(ContentRequestUtils.ATTR_REQUEST_URI));
     }
 

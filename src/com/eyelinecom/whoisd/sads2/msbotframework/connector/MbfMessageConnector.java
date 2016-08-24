@@ -2,19 +2,19 @@ package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.Protocol;
 import com.eyelinecom.whoisd.sads2.common.InitUtils;
-import com.eyelinecom.whoisd.sads2.common.SADSLogger;
 import com.eyelinecom.whoisd.sads2.common.SADSUrlUtils;
 import com.eyelinecom.whoisd.sads2.common.UrlUtils;
 import com.eyelinecom.whoisd.sads2.connector.ChatCommand;
 import com.eyelinecom.whoisd.sads2.connector.SADSRequest;
 import com.eyelinecom.whoisd.sads2.connector.SADSResponse;
 import com.eyelinecom.whoisd.sads2.connector.Session;
+import com.eyelinecom.whoisd.sads2.events.LinkEvent;
+import com.eyelinecom.whoisd.sads2.events.MessageEvent.TextMessageEvent;
 import com.eyelinecom.whoisd.sads2.exception.NotFoundResourceException;
 import com.eyelinecom.whoisd.sads2.exception.NotFoundServiceException;
 import com.eyelinecom.whoisd.sads2.executors.connector.AbstractHTTPPushConnector;
-import com.eyelinecom.whoisd.sads2.executors.connector.LazyMessageConnector;
+import com.eyelinecom.whoisd.sads2.executors.connector.ProfileEnabledMessageConnector;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
-import com.eyelinecom.whoisd.sads2.executors.connector.SADSInitializer;
 import com.eyelinecom.whoisd.sads2.input.AbstractInputType;
 import com.eyelinecom.whoisd.sads2.input.InputFile;
 import com.eyelinecom.whoisd.sads2.input.InputLocation;
@@ -28,10 +28,8 @@ import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.eyelinecom.whoisd.sads2.registry.ServiceConfig;
-import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
 import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.eyelinecom.whoisd.sads2.utils.ConnectorUtils;
-import com.eyelinecom.whoisd.sads2.wstorage.resource.DbProfileStorage;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.Log4JLogger;
@@ -50,16 +48,12 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.CLEAR_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.INVALIDATE_SESSION;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SHOW_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.WHO_IS;
-import static com.eyelinecom.whoisd.sads2.executors.connector.LazyDialogueInitializer.DEFAULT_DELAYED_JOBS_POLL_SIZE;
 import static com.eyelinecom.whoisd.sads2.wstorage.profile.QueryRestrictions.property;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.commons.lang.StringUtils.equalsIgnoreCase;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
@@ -67,8 +61,6 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
 public class MbfMessageConnector extends HttpServlet {
 
   private final static Log log = new Log4JLogger(Logger.getLogger(MbfMessageConnector.class));
-
-  public static final String ATTR_SESSION_PREVIOUS_PAGE_URI = "SADS-previous-page-uri";
 
   private MbfMessageConnectorImpl connector;
 
@@ -138,90 +130,7 @@ public class MbfMessageConnector extends HttpServlet {
   //
 
   private class MbfMessageConnectorImpl
-      extends LazyMessageConnector<MbfWebhookRequest, SADSResponse> {
-
-    //<editor-fold desc="Thread pool boilerplate">
-    private String executorResourceName;
-    private ScheduledExecutorService delayedExecutor;
-
-    @Override
-    public void init(Properties config) throws Exception {
-      super.init(config);
-
-      executorResourceName = InitUtils.getString("thread-pool", null, config);
-
-      if (getLogger().isDebugEnabled()) {
-        getLogger().debug("executor resourcename=" + executorResourceName);
-      }
-
-      if (StringUtils.isBlank(executorResourceName)) {
-        this.delayedExecutor =
-            newScheduledThreadPool(InitUtils.getInt("pool-size", DEFAULT_DELAYED_JOBS_POLL_SIZE, config));
-        getLogger().debug("created a new delayed executor");
-      }
-    }
-
-    @Override
-    protected ExecutorService getExecutor(ServiceConfig config, String subscriber) {
-      final Log log = getLogger();
-
-      if (delayedExecutor == null) {
-        try {
-          final String executorResource =
-              InitUtils.getString("executor", executorResourceName, config.getAttributes());
-          final ScheduledExecutorService executorService =
-              (ScheduledExecutorService) getResource(executorResource);
-
-          if (log.isDebugEnabled()) {
-            log.debug("Used resource executor: " + executorResource);
-          }
-          return executorService;
-
-        } catch (NotFoundResourceException e) {
-          if (log.isDebugEnabled()) {
-            log.debug("Used internal executor",e);
-          }
-          return delayedExecutor;
-        }
-
-      } else {
-        if (log.isDebugEnabled()) {
-          log.debug("Used internal executor (it's not null)");
-        }
-        return delayedExecutor;
-      }
-    }
-    //</editor-fold>
-
-    @Override
-    public SADSResponse process(MbfWebhookRequest req) {
-      getProfileStorage().getContext().start();
-      try {
-        return super.process(req);
-
-      } finally {
-        getProfileStorage().getContext().close();
-      }
-    }
-
-    @Override
-    protected Runnable buildRunnable(final MbfWebhookRequest req,
-                                     final SADSRequest sadsRequest,
-                                     final Runnable runnable) {
-      return new Runnable() {
-        @Override
-        public void run() {
-          getProfileStorage().getContext().start();
-          try {
-            MbfMessageConnectorImpl.super
-                .buildRunnable(req, sadsRequest, runnable)
-                .run();
-          } finally {
-            getProfileStorage().getContext().close();
-          }
-        }
-      };
-    }
+      extends ProfileEnabledMessageConnector<MbfWebhookRequest> {
 
     /** Response to a WebHook update. */
     @Override
@@ -244,18 +153,16 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     @Override
-    protected boolean isUSSDInitiator() {
-      // Always FALSE.
-      return false;
-    }
-
-    @Override
     protected String getSubscriberId(MbfWebhookRequest req) throws Exception {
+      if (req.getProfile() != null) {
+        return req.getProfile().getWnumber();
+      }
+
       final Activity msg = req.asMessage();
       final String channelId = msg.getChannelId();
 
       final String incoming = req.getMessageText();
-      if (ChatCommand.match(incoming, msg.getProtocol()) == CLEAR_PROFILE) {
+      if (ChatCommand.match(getServiceId(req), incoming, msg.getProtocol()) == CLEAR_PROFILE) {
         // Reset profile of the current user.
 
         final String from = msg.getFrom().getId();
@@ -287,6 +194,8 @@ public class MbfMessageConnector extends HttpServlet {
         profile = null;
       }
 
+      req.setProfile(profile);
+
       //noinspection ConstantConditions
       return profile.getWnumber();
     }
@@ -307,8 +216,16 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     @Override
-    protected String getGatewayRequestDescription(MbfWebhookRequest httpServletRequest) {
-      return "MsBotFramework";
+    protected String getGatewayRequestDescription(MbfWebhookRequest req) {
+      String channelId = null;
+      try {
+        channelId = req.asMessage().getChannelId();
+
+      } catch (IOException | MbfException e) {
+        getLogger().warn("Cannot determine ChannelId from message [" + req + "]");
+      }
+
+      return "MsBotFramework" + (channelId == null ? "" : "/" + channelId);
     }
 
     @Override
@@ -336,6 +253,8 @@ public class MbfMessageConnector extends HttpServlet {
       if (isEmpty(mediaList)) {
         return;
       }
+
+      req.setEvent(mediaList.iterator().next().asEvent());
 
       final String inputName;
       {
@@ -380,25 +299,18 @@ public class MbfMessageConnector extends HttpServlet {
             file.setUrl(url);
             rc.add(file);
 
-            //        } else if ("location".equals(contentType)) {
-            //          final Pair<Double, Double> latLon =
-            //              new LocationExtractor().extractLocation(getLog(req), attachment.getContentUrl());
-            //          if (latLon != null) {
-            //            rc.add(new InputLocation(latLon.getRight(), latLon.getLeft()));
-            //          }
-            //
-            //        } else {
-            //          // TODO: determine mediaType.
-            //          final InputFile file = new InputFile();
-            //          file.setUrl(url);
-            //          rc.add(file);
+          } else {
+            // TODO: correctly determine MediaType.
+            final InputFile file = new InputFile();
+            file.setMediaType("document");
+            file.setUrl(url);
+            rc.add(file);
           }
         }
       }
 
       if (msg.getEntities() != null && msg.getEntities().length != 0) {
         for (Entity entity : msg.getEntities()) {
-
           if (entity instanceof Entity.Place && ((Entity.Place) entity).getGeo() != null) {
             final Entity.GeoCoordinates geo = ((Entity.Place) entity).getGeo();
             rc.add(new InputLocation(geo.getLongitude(), geo.getLatitude()));
@@ -436,7 +348,7 @@ public class MbfMessageConnector extends HttpServlet {
 
       Session session = sessionManager.getSession(wnumber);
 
-      final ChatCommand cmd = ChatCommand.match(incoming, protocol);
+      final ChatCommand cmd = ChatCommand.match(serviceId, incoming, protocol);
 
       if (cmd == INVALIDATE_SESSION) {
         // Invalidate the current session.
@@ -468,6 +380,7 @@ public class MbfMessageConnector extends HttpServlet {
       final String prevUri = (String) session.getAttribute(ATTR_SESSION_PREVIOUS_PAGE_URI);
       if (prevUri == null) {
         // No previous page means this is an initial request, thus serve the start page.
+        req.setEvent(new TextMessageEvent(incoming));
         return super.getRequestUri(config, wnumber, req);
 
       } else {
@@ -486,6 +399,8 @@ public class MbfMessageConnector extends HttpServlet {
           if (equalsIgnoreCase(btnLabel, incoming) || equalsIgnoreCase(btnIndex, incoming)) {
             final String btnHref = e.attributeValue("href");
             href = btnHref != null ? btnHref : e.attributeValue("target");
+
+            req.setEvent(new LinkEvent(btnLabel, prevUri));
           }
         }
 
@@ -506,6 +421,10 @@ public class MbfMessageConnector extends HttpServlet {
           href = UrlUtils.addParameter(href, "bad_command", incoming);
         }
 
+        if (req.getEvent() == null) {
+          req.setEvent(new TextMessageEvent(incoming));
+        }
+
         href = SADSUrlUtils.processUssdForm(href, StringUtils.trim(incoming));
         if (inputName != null) {
           href = UrlUtils.addParameter(href, inputName, incoming);
@@ -522,12 +441,6 @@ public class MbfMessageConnector extends HttpServlet {
       return rc;
     }
 
-    @Override
-    protected SADSResponse getSavedSADSResponse(MbfWebhookRequest httpServletRequest) {
-      // Always NULL.
-      return null;
-    }
-
     /**
      * @param request   Request to the content provider
      * @param response  Response from content provider
@@ -540,27 +453,8 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     @Override
-    protected SADSResponse sadsRequestBuildError(Exception e,
-                                                 MbfWebhookRequest req) {
-      getLog(req).error("SADSRequest build error", e);
-      return null;
-    }
-
-    @Override
-    protected SADSResponse sadsResponseBuildError(Exception e,
-                                                  MbfWebhookRequest req,
-                                                  SADSRequest sadsRequest) {
-      getLog(req).error("SADSResponse build error", e);
-      return null;
-    }
-
-    @Override
-    protected SADSResponse messageProcessingError(Exception e,
-                                                  MbfWebhookRequest req,
-                                                  SADSRequest sadsRequest,
-                                                  SADSResponse response) {
-      getLog(req).error("Message processing error", e);
-      return null;
+    protected Profile getCachedProfile(MbfWebhookRequest req) {
+      return req.getProfile();
     }
 
     private MbfServiceRegistry getServiceRegistry() throws NotFoundResourceException {
@@ -571,38 +465,5 @@ public class MbfMessageConnector extends HttpServlet {
       return (MbfApi) getResource("msbotframework-api");
     }
 
-    private SessionManager getSessionManager(Protocol protocol, String serviceId) throws Exception {
-      final ServiceSessionManager serviceSessionManager =
-          (ServiceSessionManager) getResource("session-manager");
-      return serviceSessionManager.getSessionManager(protocol, serviceId);
-    }
-
-    private DbProfileStorage getProfileStorage() {
-      try {
-        return (DbProfileStorage) getResource("profile-storage");
-
-      } catch (NotFoundResourceException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    private String getRootUri() {
-      try {
-        final Properties mainProperties = SADSInitializer.getMainProperties();
-        return mainProperties.getProperty("root.uri");
-
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    private Log getLog(MbfWebhookRequest req) {
-      try{
-        return SADSLogger.getLogger(getServiceId(req), getSubscriberId(req), getClass());
-
-      } catch (Exception e) {
-        return getLogger();
-      }
-    }
   }
 }

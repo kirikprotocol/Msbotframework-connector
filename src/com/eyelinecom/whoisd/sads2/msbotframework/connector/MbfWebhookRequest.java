@@ -1,9 +1,11 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.common.StoredHttpRequest;
+import com.eyelinecom.whoisd.sads2.events.Event;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
+import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.google.common.base.MoreObjects;
 
 import javax.servlet.http.HttpServletRequest;
@@ -22,6 +24,9 @@ public class MbfWebhookRequest extends StoredHttpRequest {
 
   private Activity activity;
   private final String appId;
+
+  private transient Profile profile;
+  private transient Event event;
 
   MbfWebhookRequest(HttpServletRequest request) {
     super(request);
@@ -47,6 +52,22 @@ public class MbfWebhookRequest extends StoredHttpRequest {
    */
   public String getAppId() {
     return appId;
+  }
+
+  public Profile getProfile() {
+    return profile;
+  }
+
+  public void setProfile(Profile profile) {
+    this.profile = profile;
+  }
+
+  public Event getEvent() {
+    return event;
+  }
+
+  public void setEvent(Event event) {
+    this.event = event;
   }
 
   @Override
