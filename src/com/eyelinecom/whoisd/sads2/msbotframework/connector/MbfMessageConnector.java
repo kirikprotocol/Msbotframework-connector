@@ -230,8 +230,6 @@ public class MbfMessageConnector extends HttpServlet {
 
     @Override
     protected void fillSADSRequest(SADSRequest sadsRequest, MbfWebhookRequest req) {
-      super.fillSADSRequest(sadsRequest, req);
-
       try {
         // We might need an original message for constructing reply.
         final Activity msg = req.asMessage();
@@ -242,6 +240,8 @@ public class MbfMessageConnector extends HttpServlet {
       } catch (Exception e) {
         log.error(e.getMessage(), e);
       }
+
+      super.fillSADSRequest(sadsRequest, req);
     }
 
     private void handleFileUpload(SADSRequest sadsRequest,
