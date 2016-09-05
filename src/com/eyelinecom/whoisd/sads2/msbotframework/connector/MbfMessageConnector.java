@@ -458,11 +458,11 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     private MbfServiceRegistry getServiceRegistry() throws NotFoundResourceException {
-      return (MbfServiceRegistry) getResource("msbotframework-service-registry");
+      return getResource("msbotframework-service-registry");
     }
 
     private MbfApi getClient() throws NotFoundResourceException {
-      return (MbfApi) getResource("msbotframework-api");
+      return getResource("msbotframework-api");
     }
 
   }
