@@ -1,0 +1,45 @@
+{
+  "type": "Message",
+  "id": "BIGB3tbArPd",
+  "conversationId": "DNT5qLALZ4xfH2OCwi9ZPC80AqlH2PFzn8Gy6yJ1ru2MV3gw",
+  "created": "2016-05-25T12:23:47.6618146Z",
+  "sourceText": "Hello2",
+  "sourceLanguage": "en",
+  "language": "ru",
+  "text": "Hello2",
+  "attachments": [],
+  "from": {
+    "name": "devportal",
+    "channelId": "test",
+    "address": "devportal",
+    "id": "JMQ0KLCKN6R",
+    "isBot": false
+  },
+  "to": {
+    "name": "GussdTestBot",
+    "channelId": "test",
+    "address": "GussdTestBot",
+    "id": "GussdTestBot",
+    "isBot": true
+  },
+  "participants": [
+    {
+      "name": "devportal",
+      "channelId": "test",
+      "address": "devportal",
+      "id": "JMQ0KLCKN6R",
+      "isBot": false
+    },
+    {
+      "name": "GussdTestBot",
+      "channelId": "test",
+      "address": "GussdTestBot",
+      "id": "GussdTestBot",
+      "isBot": true
+    }
+  ],
+  "totalParticipants": 2,
+  "mentions": [],
+  "channelConversationId": "GussdTestBot",
+  "hashtags": []
+}
