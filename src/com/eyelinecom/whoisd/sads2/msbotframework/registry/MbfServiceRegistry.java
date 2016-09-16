@@ -15,6 +15,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.log4j.Logger;
 
 import java.util.Objects;
 import java.util.Properties;
@@ -30,7 +31,9 @@ public class MbfServiceRegistry extends ServiceConfigListener {
 
   public static final String CONF_TOKEN = "msbotframework.token";
 
-  private final BiMap<String, MbfBotDetails> services = HashBiMap.create();
+  private final Logger log = Logger.getLogger(MbfServiceRegistry.class);
+
+  private final BiMap<String /* serviceId */, MbfBotDetails> services = HashBiMap.create();
   private final MbfApi api;
 
   public MbfServiceRegistry(MbfApi api) {
@@ -113,6 +116,20 @@ public class MbfServiceRegistry extends ServiceConfigListener {
       throw new NotFoundServiceException("[by MsBotFramework application ID = " + appId + "]");
     }
     return serviceId;
+  }
+
+  public MbfBotDetails findBotByMbfToken(String mbfToken) {
+    try {
+      mbfToken = trimToNull(mbfToken);
+
+      final Pair<String, String> idAndSecret = StringUtils.parsePair(mbfToken);
+      final String appId = idAndSecret.getLeft();
+      return getBot(findService(appId));
+
+    } catch (Exception e) {
+      log.error("Lookup by mbfToken = [" + mbfToken + "] failed", e);
+      return null;
+    }
   }
 
   public MbfBotDetails getBot(String serviceId) {

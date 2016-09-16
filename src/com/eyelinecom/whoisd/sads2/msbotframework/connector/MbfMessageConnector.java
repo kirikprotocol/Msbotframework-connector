@@ -8,6 +8,7 @@ import com.eyelinecom.whoisd.sads2.connector.ChatCommand;
 import com.eyelinecom.whoisd.sads2.connector.SADSRequest;
 import com.eyelinecom.whoisd.sads2.connector.SADSResponse;
 import com.eyelinecom.whoisd.sads2.connector.Session;
+import com.eyelinecom.whoisd.sads2.events.Event;
 import com.eyelinecom.whoisd.sads2.events.LinkEvent;
 import com.eyelinecom.whoisd.sads2.events.MessageEvent.TextMessageEvent;
 import com.eyelinecom.whoisd.sads2.exception.NotFoundResourceException;
@@ -450,6 +451,11 @@ public class MbfMessageConnector extends HttpServlet {
                                             SADSRequest request,
                                             SADSResponse response) {
       return buildWebhookResponse(200);
+    }
+
+    @Override
+    protected Event getEvent(MbfWebhookRequest req) {
+      return req.getEvent();
     }
 
     @Override

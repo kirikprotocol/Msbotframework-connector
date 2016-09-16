@@ -53,6 +53,7 @@ import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.Protocol.SKYPE;
 import static com.eyelinecom.whoisd.sads2.content.attributes.AttributeReader.getAttributes;
 import static com.eyelinecom.whoisd.sads2.executors.connector.ProfileEnabledMessageConnector.ATTR_SESSION_PREVIOUS_PAGE_URI;
+import static com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry.CONF_TOKEN;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
@@ -141,7 +142,15 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     if (!isNothingToSend) {
 
-      final MbfBotDetails bot = serviceRegistry.getBot(serviceId);
+      final MbfBotDetails bot;
+      {
+        final MbfBotDetails bySid = serviceRegistry.getBot(serviceId);
+        bot = bySid != null ?
+            bySid :
+            serviceRegistry.findBotByMbfToken(
+                request.getServiceScenario().getAttributes().getProperty(CONF_TOKEN)
+            );
+      }
 
       final Activity activity;
       {
