@@ -2,6 +2,7 @@ package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.common.StoredHttpRequest;
 import com.eyelinecom.whoisd.sads2.events.Event;
+import com.eyelinecom.whoisd.sads2.eventstat.LoggableExternalRequest;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils;
@@ -20,7 +21,7 @@ import static org.apache.commons.lang3.StringUtils.trimToNull;
  * <br/>
  * Expected to land at {@literal <MOBILIZER_ROOT>/<MBF_CONNECTOR>/<mbf.app.id>}.
  */
-public class MbfWebhookRequest extends StoredHttpRequest {
+public class MbfWebhookRequest extends StoredHttpRequest implements LoggableExternalRequest {
 
   private Activity activity;
   private final String appId;
@@ -77,5 +78,15 @@ public class MbfWebhookRequest extends StoredHttpRequest {
         .add("appId", appId)
         .add("activity", activity)
         .toString();
+  }
+
+  @Override
+  public Object getLoggableData() {
+    try {
+      return asMessage();
+
+    } catch (IOException | MbfException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

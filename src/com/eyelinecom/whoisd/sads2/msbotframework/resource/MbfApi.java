@@ -11,11 +11,6 @@ public interface MbfApi {
                 MbfBotDetails bot,
                 Activity activity) throws MbfException;
 
-  Activity send(SessionManager sessionManager,
-                String apiRoot,
-                MbfBotDetails bot,
-                Activity activity) throws MbfException;
-
   /**
    * Checks if the supplied credentials are valid.
    *

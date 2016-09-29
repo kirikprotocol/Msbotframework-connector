@@ -42,11 +42,10 @@ public class MbfApiImpl implements MbfApi {
     return send(sessionManager, activity.getServiceUrl(), bot, activity);
   }
 
-  @Override
-  public Activity send(SessionManager sessionManager,
-                       String apiRoot,
-                       MbfBotDetails bot,
-                       Activity activity) throws MbfException {
+  private Activity send(SessionManager sessionManager,
+                        String apiRoot,
+                        MbfBotDetails bot,
+                        Activity activity) throws MbfException {
 
     messagesPerSecondLimit.acquire();
 
