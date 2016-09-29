@@ -11,7 +11,6 @@ import com.eyelinecom.whoisd.sads2.connector.Session;
 import com.eyelinecom.whoisd.sads2.content.ContentRequestUtils;
 import com.eyelinecom.whoisd.sads2.content.ContentResponse;
 import com.eyelinecom.whoisd.sads2.content.attachments.Attachment;
-import com.eyelinecom.whoisd.sads2.eventstat.DetailedStatLogger;
 import com.eyelinecom.whoisd.sads2.exception.InterceptionException;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.MbfAttachmentConverter;
@@ -74,7 +73,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   private ServiceSessionManager sessionManager;
   private HttpDataLoader loader;
   private Cache<Long, byte[]> fileCache;
-  private DetailedStatLogger statLogger;
 
   @Override
   public void afterResponseRender(SADSRequest request,
@@ -200,7 +198,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       }
 
       fillContent(activity, text, request, doc);
-      statLogger.onOuterResponse(request, activity);
       client.send(
           sessionManager.getSessionManager(request.getProtocol(), serviceId),
           bot,
@@ -357,7 +354,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     sessionManager = SADSInitUtils.getResource("session-manager", config);
     loader = SADSInitUtils.getResource("loader", config);
     fileCache = SADSInitUtils.getResource("file-cache", config);
-    statLogger = SADSInitUtils.getResource("detailed-stat-logger", config);
   }
 
   @Override

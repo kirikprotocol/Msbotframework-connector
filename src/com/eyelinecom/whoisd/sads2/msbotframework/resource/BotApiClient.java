@@ -15,7 +15,6 @@ import java.util.HashMap;
 
 import static com.eyelinecom.whoisd.sads2.common.HttpLoader.METHOD_POST;
 import static com.eyelinecom.whoisd.sads2.msbotframework.util.MarshalUtils.unmarshal;
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.net.URLEncoder.encode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.commons.lang3.StringUtils.join;
@@ -23,11 +22,6 @@ import static org.apache.commons.lang3.StringUtils.join;
 public class BotApiClient {
 
   private static final Logger log = Logger.getLogger(BotApiClient.class);
-
-  private static final String API_ROOT        = "https://api.botframework.com";
-
-  private static final String SKYPE_API_ROOT  = "https://skype.botframework.com";
-  private static final String FB_API_ROOT     = "https://facebook.botframework.com";
 
   private final String appId;
   private final String appSecret;
@@ -82,28 +76,10 @@ public class BotApiClient {
     }
   }
 
-  private String guessServiceUrl(Activity msg) {
-    checkArgument(msg.getServiceUrl() == null,
-        "Internal service URL should be used if available");
-
-    switch (msg.getProtocol()) {
-      case SKYPE:     return SKYPE_API_ROOT;
-      case FACEBOOK:  return FB_API_ROOT;
-
-      default:
-        log.warn("Cannot determine API ROOT for activity [" + msg + "]");
-        return API_ROOT;
-    }
-  }
-
-  public Activity send(String token, String serviceUrl, Activity msg) throws MbfException {
-    if (serviceUrl == null) {
-      serviceUrl = guessServiceUrl(msg);
-      msg.setServiceUrl(serviceUrl);
-    }
+  public Activity send(String token, Activity msg) throws MbfException {
 
     final String conversationResource =
-        serviceUrl + "/v3/conversations/" + msg.getConversation().getId() + "/activities";
+        msg.getServiceUrl() + "/v3/conversations/" + msg.getConversation().getId() + "/activities";
 
     try {
       final Entity rc = post(token, conversationResource, msg.marshal());
