@@ -9,7 +9,6 @@ import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.resource.ResourceFactory;
-import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
@@ -46,8 +45,7 @@ public class MbfApiImpl implements MbfApi {
   }
 
   @Override
-  public Activity send(SessionManager sessionManager,
-                       MbfBotDetails bot,
+  public Activity send(MbfBotDetails bot,
                        Activity activity) throws MbfException {
 
     messagesPerSecondLimit.acquire();

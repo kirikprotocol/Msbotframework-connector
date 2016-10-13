@@ -368,14 +368,14 @@ public class MbfMessageConnector extends HttpServlet {
                 },
                 "\n\n")
         );
-        getClient().send(sessionManager, bot, reply);
+        getClient().send(bot, reply);
 
       } else if (cmd == SHOW_PROFILE) {
         final Profile profile = getProfileStorage().find(wnumber);
 
         final Activity reply = msg.createReply(new Date(), profile.dump().replace("\n", "\n\n"));
 
-        getClient().send(sessionManager, bot, reply);
+        getClient().send(bot, reply);
       }
 
       final String prevUri = (String) session.getAttribute(ATTR_SESSION_PREVIOUS_PAGE_URI);

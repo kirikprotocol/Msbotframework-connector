@@ -11,6 +11,7 @@ import com.eyelinecom.whoisd.sads2.connector.Session;
 import com.eyelinecom.whoisd.sads2.content.ContentRequestUtils;
 import com.eyelinecom.whoisd.sads2.content.ContentResponse;
 import com.eyelinecom.whoisd.sads2.content.attachments.Attachment;
+import com.eyelinecom.whoisd.sads2.content.attributes.AttributeSet;
 import com.eyelinecom.whoisd.sads2.exception.InterceptionException;
 import com.eyelinecom.whoisd.sads2.executors.connector.SADSExecutor;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.MbfAttachmentConverter;
@@ -29,7 +30,6 @@ import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
-import com.eyelinecom.whoisd.sads2.session.ServiceSessionManager;
 import com.google.common.base.Function;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
@@ -70,7 +70,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
   private MbfServiceRegistry serviceRegistry;
   private MbfApi client;
-  private ServiceSessionManager sessionManager;
   private HttpDataLoader loader;
   private Cache<Long, byte[]> fileCache;
 
@@ -127,9 +126,21 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       text = text.isEmpty() ? "." : text;
     }
 
-    final boolean shouldCloseSession =
-        buttons == null && doc.getRootElement().elements("input").isEmpty() &&
-            !getAttributes(doc.getRootElement()).getBoolean("mbf.keep.session").or(false);
+    final boolean shouldCloseSession;
+    {
+      if (buttons != null || !doc.getRootElement().elements("input").isEmpty()) {
+        shouldCloseSession = false;
+
+      } else {
+        final String protocolName = request.getProtocol().getProtocolName();
+        final AttributeSet pageAttributes = getAttributes(doc.getRootElement());
+
+        shouldCloseSession = !pageAttributes.getBoolean(protocolName + ".keep.session")
+            .or(pageAttributes.getBoolean("mbf.keep.session"))
+            .or(pageAttributes.getBoolean("keep.session"))
+            .or(false);
+      }
+    }
 
     final Session session = request.getSession();
 
@@ -198,10 +209,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       }
 
       fillContent(activity, text, request, doc);
-      client.send(
-          sessionManager.getSessionManager(request.getProtocol(), serviceId),
-          bot,
-          activity);
+      client.send(bot, activity);
     }
 
     if (shouldCloseSession) {
@@ -351,7 +359,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   public void init(Properties config) throws Exception {
     serviceRegistry = SADSInitUtils.getResource("msbotframework-service-registry", config);
     client = SADSInitUtils.getResource("client", config);
-    sessionManager = SADSInitUtils.getResource("session-manager", config);
     loader = SADSInitUtils.getResource("loader", config);
     fileCache = SADSInitUtils.getResource("file-cache", config);
   }
