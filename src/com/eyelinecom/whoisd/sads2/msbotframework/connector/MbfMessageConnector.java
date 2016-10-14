@@ -2,6 +2,7 @@ package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.Protocol;
 import com.eyelinecom.whoisd.sads2.common.InitUtils;
+import com.eyelinecom.whoisd.sads2.common.ProfileUtil;
 import com.eyelinecom.whoisd.sads2.common.SADSUrlUtils;
 import com.eyelinecom.whoisd.sads2.common.UrlUtils;
 import com.eyelinecom.whoisd.sads2.connector.ChatCommand;
@@ -32,6 +33,7 @@ import com.eyelinecom.whoisd.sads2.registry.ServiceConfig;
 import com.eyelinecom.whoisd.sads2.session.SessionManager;
 import com.eyelinecom.whoisd.sads2.utils.ConnectorUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.impl.Log4JLogger;
 import org.apache.log4j.Logger;
@@ -50,11 +52,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import static com.eyelinecom.whoisd.sads2.common.ProfileUtil.inProfile;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.CLEAR_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.INVALIDATE_SESSION;
+import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SET_DEVELOPER_MODE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.SHOW_PROFILE;
 import static com.eyelinecom.whoisd.sads2.connector.ChatCommand.WHO_IS;
 import static com.eyelinecom.whoisd.sads2.wstorage.profile.QueryRestrictions.property;
+import static java.util.Arrays.asList;
 import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.commons.lang.StringUtils.equalsIgnoreCase;
 import static org.apache.commons.lang3.StringUtils.trimToNull;
@@ -163,6 +168,7 @@ public class MbfMessageConnector extends HttpServlet {
       final String channelId = msg.getChannelId();
 
       final String incoming = req.getMessageText();
+
       if (ChatCommand.match(getServiceId(req), incoming, msg.getProtocol()) == CLEAR_PROFILE) {
         // Reset profile of the current user.
 
@@ -172,7 +178,10 @@ public class MbfMessageConnector extends HttpServlet {
             .where(property("mbf-" + channelId, "id").eq(from))
             .get();
         if (profile != null) {
-          profile.delete();
+          final boolean isDevModeEnabled = inProfile(profile).getDeveloperMode(getServiceId(req));
+          if (isDevModeEnabled) {
+            profile.delete();
+          }
         }
       }
 
@@ -227,6 +236,24 @@ public class MbfMessageConnector extends HttpServlet {
       }
 
       return "MsBotFramework" + (channelId == null ? "" : "/" + channelId);
+    }
+
+    @Override
+    protected boolean isTerminated(MbfWebhookRequest req) throws Exception {
+      final String incoming = req.getMessageText();
+      final String serviceId = getServiceId(req);
+
+      final boolean isDevModeEnabled = req.getProfile() != null &&
+          ProfileUtil.inProfile(req.getProfile()).getDeveloperMode(serviceId);
+
+      final ChatCommand command = ChatCommand.match(
+          serviceId,
+          incoming,
+          Activity.asProtocol(req.asMessage().getChannelId())
+      );
+
+      return command == SET_DEVELOPER_MODE ||
+          isDevModeEnabled && asList(SHOW_PROFILE, WHO_IS).contains(command);
     }
 
     @Override
@@ -346,17 +373,19 @@ public class MbfMessageConnector extends HttpServlet {
       final MbfBotDetails bot = getServiceRegistry().getBot(serviceId);
       final Protocol protocol = getRequestProtocol(config, wnumber, req);
       final SessionManager sessionManager = getSessionManager(protocol, serviceId);
+      final Profile profile = getProfileStorage().find(wnumber);
+      final boolean isDevModeEnabled = inProfile(profile).getDeveloperMode(serviceId);
 
       Session session = sessionManager.getSession(wnumber);
 
       final ChatCommand cmd = ChatCommand.match(serviceId, incoming, protocol);
 
-      if (cmd == INVALIDATE_SESSION) {
+      if (cmd == INVALIDATE_SESSION && isDevModeEnabled) {
         // Invalidate the current session.
         session.close();
         session = sessionManager.getSession(wnumber);
 
-      } else if (cmd == WHO_IS) {
+      } else if (cmd == WHO_IS && isDevModeEnabled) {
         final Activity reply = msg.createReply(
             new Date(),
             StringUtils.join(
@@ -370,12 +399,35 @@ public class MbfMessageConnector extends HttpServlet {
         );
         getClient().send(bot, reply);
 
-      } else if (cmd == SHOW_PROFILE) {
-        final Profile profile = getProfileStorage().find(wnumber);
-
+      } else if (cmd == SHOW_PROFILE && isDevModeEnabled) {
         final Activity reply = msg.createReply(new Date(), profile.dump().replace("\n", "\n\n"));
 
         getClient().send(bot, reply);
+
+      } else if (cmd == SET_DEVELOPER_MODE) {
+        final String value = ChatCommand.getCommandValue(incoming);
+        final Boolean devMode = BooleanUtils.toBooleanObject(value);
+
+        if (devMode != null) {
+          inProfile(profile).setDeveloperMode(serviceId, devMode);
+
+          final Activity reply = msg.createReply(
+              new Date(),
+              "Developer mode is " + (devMode ? "enabled" : "disabled") + "."
+          );
+
+          getClient().send(bot, reply);
+
+        } else {
+          final Activity reply = msg.createReply(
+              new Date(),
+              "Developer mode is " +
+                  (inProfile(profile).getDeveloperMode(serviceId) ? "enabled" : "disabled") +
+                  "."
+          );
+
+          getClient().send(bot, reply);
+        }
       }
 
       final String prevUri = (String) session.getAttribute(ATTR_SESSION_PREVIOUS_PAGE_URI);
