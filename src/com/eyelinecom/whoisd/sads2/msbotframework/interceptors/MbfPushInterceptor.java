@@ -5,6 +5,7 @@ import com.eyelinecom.whoisd.sads2.common.HttpDataLoader;
 import com.eyelinecom.whoisd.sads2.common.Initable;
 import com.eyelinecom.whoisd.sads2.common.PageBuilder;
 import com.eyelinecom.whoisd.sads2.common.SADSInitUtils;
+import com.eyelinecom.whoisd.sads2.common.StringUtils;
 import com.eyelinecom.whoisd.sads2.connector.SADSRequest;
 import com.eyelinecom.whoisd.sads2.connector.SADSResponse;
 import com.eyelinecom.whoisd.sads2.connector.Session;
@@ -31,9 +32,9 @@ import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
-import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -45,6 +46,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
@@ -60,18 +62,26 @@ import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.Collections2.transform;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.partition;
+import static java.util.Collections.singletonList;
+import static org.apache.commons.collections.CollectionUtils.isEmpty;
 import static org.apache.commons.collections.CollectionUtils.isNotEmpty;
 import static org.apache.commons.lang.StringUtils.isNotBlank;
+import static org.apache.commons.lang3.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.join;
 
 @SuppressWarnings({"unused", "WeakerAccess"})
 public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
   private static final Logger log = Logger.getLogger(MbfPushInterceptor.class);
 
+  private static final int FB_ACTIONS_PER_GROUP = 3;
+
   private MbfServiceRegistry serviceRegistry;
   private MbfApi client;
   private HttpDataLoader loader;
   private Cache<Long, byte[]> fileCache;
+
+  private String facebookBubbleHeader = ".";
 
   @Override
   public void afterResponseRender(SADSRequest request,
@@ -120,7 +130,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     String text = getText(doc);
 
-    final boolean isNothingToSend = StringUtils.isBlank(text) && buttons == null;
+    final boolean isNothingToSend = isBlank(text) && buttons == null;
     if (!isNothingToSend) {
       // Messages with no text are not allowed.
       text = text.isEmpty() ? "." : text;
@@ -153,63 +163,18 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     if (!isNothingToSend) {
 
-      final MbfBotDetails bot;
-      {
-        final MbfBotDetails bySid = serviceRegistry.getBot(serviceId);
-        bot = bySid != null ?
-            bySid :
-            serviceRegistry.findBotByMbfToken(
-                request.getServiceScenario().getAttributes().getProperty(CONF_TOKEN)
-            );
+      final MbfBotDetails bot = Optional
+          .fromNullable(serviceRegistry.getBot(serviceId))
+          .or(serviceRegistry.findBotByMbfToken(
+              request.getServiceScenario().getAttributes().getProperty(CONF_TOKEN)
+          ));
+
+
+      final List<Activity> activities = createResponse(request, bot, doc, text);
+      for (Activity activity : activities) {
+        client.send(bot, activity);
       }
 
-      final Activity activity;
-      {
-
-        final Activity initialActivity =
-            (Activity) request.getAttributes().get("mbf.message");
-
-        if (initialActivity != null) {
-          activity = initialActivity.createReply(new Date());
-
-        } else {
-          // PUSH request, so rely on Profile to be initialized w/ all the necessary stuff.
-          final String protocolName = request.getProtocol().getProtocolName();
-
-          final Profile profile = request.getProfile();
-
-          activity = new Activity() {{
-            setType(ActivityType.MESSAGE);
-            setFrom(
-                new ChannelAccount(
-                    checkNotNull(
-                        profile.property("mbf-" + protocolName, "bots", bot.getAppId()).getValue()
-                    )
-                )
-            );
-            setRecipient(
-                new ChannelAccount(
-                    checkNotNull(
-                      profile.property("mbf-" + protocolName, "id").getValue()
-                    )
-                )
-            );
-            setConversation(
-                new ConversationAccount(
-                    checkNotNull(
-                      profile.property("mbf-" + protocolName, "chats", bot.getAppId()).getValue()
-                    )
-                )
-            );
-
-            setChannelId(Activity.asChannelId(request.getProtocol()));
-          }};
-        }
-
-      }
-
-      fillContent(activity, text, request, doc);
-      client.send(bot, activity);
     }
 
     if (shouldCloseSession) {
@@ -218,93 +183,210 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     }
   }
 
-  private void fillContent(Activity msg,
+  List<Activity> createResponse(final SADSRequest request, MbfBotDetails bot, Document doc, final String text) {
 
-                           final String text,
-                           SADSRequest request,
-                           Document doc) {
+    final List<Element> buttons = getKeyboard(doc);
 
-    msg.setText(text);
-
-    final List<MbfAttachment> attachments = new ArrayList<>();
-
-    // Keyboard.
-    {
-      final List<Element> buttons = getKeyboard(doc);
-      if (isNotEmpty(buttons)) {
-
-        final List<String> labels = new ArrayList<String>() {{
-          for (Element _ : buttons) add(_.getTextTrim());
-        }};
-
-        if (request.getProtocol() == SKYPE) {
-          // No cards for Skype yet, so fall back to plain text.
-          final String textKeyboard = getTextKeyboardMd(buttons);
-          msg.setText(msg.getText() + "\n\n" + textKeyboard);
-
-        } else if (request.getProtocol() == FACEBOOK) {
-
-          final int ACTIONS_PER_GROUP = 3;
-
-          if (labels.size() > ACTIONS_PER_GROUP) {
-            // A single bubble cannot contain more than 3 links, so build a customized carousel
-            // using `Generic' FB template here.
-            final List<Bubble> bubbles = new ArrayList<Bubble>() {{
-              final List<List<String>> parts = partition(labels, ACTIONS_PER_GROUP);
-              for (int i = 0; i < parts.size(); i++) {
-                final boolean firstBubble = i == 0;
-                final List<String> actions = parts.get(i);
-
-                add(new Bubble() {{
-                  setTitle(firstBubble ? text : ".");
-                  setButtons(newArrayList(transform(actions,
-                      new Function<String, Button>() {
-                        @Override public Button apply(String _) { return Button.postback(_); }
-                      }))
-                  );
-                }});
-              }
-            }};
-
-            final GenericTemplate template = new GenericTemplate(bubbles);
-            msg.setChannelData(
-                new FacebookChannelData() {{
-                  setAttachment(new TemplateAttachment(template));
-                }}
-            );
-
-            msg.setText(null);
-
-          } else {
-            // Seems to be the desired way to post messages w/ links.
-            attachments.add(HeroCard.fromOptions(msg.getText(), labels));
-
-            // Clear the text we've set earlier as it is already in HeroCard.
-            msg.setText(null);
-          }
-
-
-        } else {
-          attachments.add(HeroCard.fromOptions(msg.getText(), labels));
-          msg.setText(null);
-        }
-
-      }
-
-    }
+    final List<String> labels = isNotEmpty(buttons) ?
+        new ArrayList<String>() {{ for (Element _ : buttons) add(_.getTextTrim()); }} :
+        Collections.<String>emptyList();
 
     // File attachments.
+    final List<MbfAttachment> fileAttachments = new ArrayList<>();
     {
-      final Collection<Attachment> fileAttachments = Attachment.extract(log, doc);
-      if (isNotEmpty(fileAttachments)) {
+      final Collection<Attachment> rawFileAttachments = Attachment.extract(log, doc);
+      if (isNotEmpty(rawFileAttachments)) {
         final MbfAttachmentConverter converter =
             new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
 
-        attachments.addAll(filter(transform(fileAttachments, converter), notNull()));
+        fileAttachments.addAll(filter(transform(rawFileAttachments, converter), notNull()));
       }
     }
 
-    msg.setAttachments(attachments);
+    if (request.getProtocol() == SKYPE) {
+      final Activity msg = createActivityTemplate(request, bot);
+
+      if (isEmpty(buttons)) {
+        msg.setText(text);
+
+      } else {
+        final String textKeyboard = getTextKeyboardMd(buttons);
+        msg.setText(msg.getText() + "\n\n" + textKeyboard);
+      }
+
+      if (isNotEmpty(fileAttachments)) {
+        msg.setAttachments(fileAttachments);
+      }
+
+      return singletonList(msg);
+
+    } else if (request.getProtocol() == FACEBOOK) {
+
+      if (isEmpty(buttons)) {
+        // Simple text message. Don't care about text size limits, MBF will handle that.
+        final Activity msg = createActivityTemplate(request, bot);
+        msg.setText(text);
+
+        if (isNotEmpty(fileAttachments)) {
+          final ArrayList<MbfAttachment> attachments = new ArrayList<>();
+          attachments.addAll(fileAttachments);
+          msg.setAttachments(attachments);
+        }
+
+        return Collections.singletonList(msg);
+
+      } else if (buttons.size() <= FB_ACTIONS_PER_GROUP) {
+        // Message with links, use FB's ButtonTemplate.
+
+        final List<String> textParts = StringUtils.splitText(text, '\n', 320);
+
+        if (textParts.size() == 1) {
+          // Text fits into a single ButtonTemplate, send via HeroCard.
+          final Activity msg = createActivityTemplate(request, bot);
+
+          final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
+            add(HeroCard.fromOptions(text, labels));
+            addAll(fileAttachments);
+          }};
+          msg.setAttachments(attachments);
+
+          return Collections.singletonList(msg);
+
+        } else {
+          // First, send all the text split into several messages,
+          final List<Activity> messages = new ArrayList<>();
+
+          for (final String textPart : textParts) {
+            final Activity msg = createActivityTemplate(request, bot);
+            msg.setText(textPart);
+            messages.add(msg);
+          }
+
+          // .. and the last one as a bubble w/ all remaining links & attachments.
+          final Activity msg = createActivityTemplate(request, bot);
+          final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
+            add(HeroCard.fromOptions(getFbSingleBubbleHeader(request), labels));
+            addAll(fileAttachments);
+          }};
+          msg.setAttachments(attachments);
+
+          messages.add(msg);
+
+          return Collections.unmodifiableList(messages);
+        }
+
+      } else {
+        // Use FB's Generic template via ChannelData.
+
+        if (text.length() <= 80) {
+          // Text fits into a single GenericTemplate.
+          final Activity msg = createActivityTemplate(request, bot);
+          msg.setChannelData(asFbGenericTemplate(text, labels));
+
+          if (isNotEmpty(fileAttachments)) {
+            final ArrayList<MbfAttachment> attachments = new ArrayList<>();
+            attachments.addAll(fileAttachments);
+            msg.setAttachments(attachments);
+          }
+
+          return Collections.singletonList(msg);
+
+        } else {
+          final List<String> textParts = StringUtils.splitText(text, '\n', 320);
+
+          final List<Activity> messages = new ArrayList<>();
+
+          for (final String textPart : textParts) {
+            final Activity msg = createActivityTemplate(request, bot);
+            msg.setText(textPart);
+            messages.add(msg);
+          }
+
+          final Activity msg = createActivityTemplate(request, bot);
+          msg.setChannelData(asFbGenericTemplate(getFbSingleBubbleHeader(request), labels));
+
+          if (isNotEmpty(fileAttachments)) {
+            final ArrayList<MbfAttachment> attachments = new ArrayList<>();
+            attachments.addAll(fileAttachments);
+            msg.setAttachments(attachments);
+          }
+
+          messages.add(msg);
+
+          return Collections.unmodifiableList(messages);
+        }
+      }
+
+    } else {
+      // Unsupported protocol.
+      return Collections.emptyList();
+    }
+  }
+
+  Activity createActivityTemplate(final SADSRequest request, final MbfBotDetails bot) {
+    final Activity initialActivity =
+        (Activity) request.getAttributes().get("mbf.message");
+
+    if (initialActivity != null) {
+      return initialActivity.createReply(new Date());
+
+    } else {
+      // PUSH request, so rely on Profile to be initialized w/ all the necessary stuff.
+      final String protocolName = request.getProtocol().getProtocolName();
+
+      final Profile profile = request.getProfile();
+
+      return new Activity() {{
+        setType(ActivityType.MESSAGE);
+        setFrom(
+            new ChannelAccount(
+                checkNotNull(
+                    profile.property("mbf-" + protocolName, "bots", bot.getAppId()).getValue()
+                )
+            )
+        );
+        setRecipient(
+            new ChannelAccount(
+                checkNotNull(
+                  profile.property("mbf-" + protocolName, "id").getValue()
+                )
+            )
+        );
+        setConversation(
+            new ConversationAccount(
+                checkNotNull(
+                  profile.property("mbf-" + protocolName, "chats", bot.getAppId()).getValue()
+                )
+            )
+        );
+
+        setChannelId(Activity.asChannelId(request.getProtocol()));
+      }};
+    }
+  }
+
+  private FacebookChannelData asFbGenericTemplate(final String text, final List<String> labels) {
+    final List<Bubble> bubbles = new ArrayList<Bubble>() {{
+      final List<List<String>> parts = partition(labels, FB_ACTIONS_PER_GROUP);
+      for (int i = 0; i < parts.size(); i++) {
+        final boolean firstBubble = i == 0;
+        final List<String> actions = parts.get(i);
+
+        add(new Bubble() {{
+          setTitle(firstBubble ? text : facebookBubbleHeader);
+          setButtons(newArrayList(transform(actions,
+              new Function<String, Button>() {
+                @Override public Button apply(String _) { return Button.postback(_); }
+              }))
+          );
+        }});
+      }
+    }};
+
+    final GenericTemplate template = new GenericTemplate(bubbles);
+    return new FacebookChannelData() {{
+      setAttachment(new TemplateAttachment(template));
+    }};
   }
 
   /**
@@ -326,7 +408,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       }
     }};
 
-    return StringUtils.join(messages, "\n\n").trim();
+    return join(messages, "\n\n").trim();
   }
 
   public static String getContent(Element element) throws DocumentException {
@@ -361,6 +443,21 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     client = SADSInitUtils.getResource("client", config);
     loader = SADSInitUtils.getResource("loader", config);
     fileCache = SADSInitUtils.getResource("file-cache", config);
+    facebookBubbleHeader = SADSInitUtils.getString("facebook.bubble.header", ".", config);
+  }
+
+  protected String getFbSingleBubbleHeader(SADSRequest request) {
+    return getLocalizedProperty(request, "facebook.single.bubble.header", ".");
+  }
+
+  private String getLocalizedProperty(SADSRequest request, String name, String defaultValue) {
+    // FIXME: "lang" is in ContentRequest!
+    final String lang = request.getParameters().get("lang");
+
+    final Properties attrs = request.getServiceScenario().getAttributes();
+
+    final String localized = lang != null ? attrs.getProperty(name + "." + lang) : null;
+    return Optional.fromNullable(localized).or(attrs.getProperty(name, defaultValue));
   }
 
   @Override
