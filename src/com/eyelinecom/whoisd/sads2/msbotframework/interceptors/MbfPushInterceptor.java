@@ -211,7 +211,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
       } else {
         final String textKeyboard = getTextKeyboardMd(buttons);
-        msg.setText(msg.getText() + "\n\n" + textKeyboard);
+        msg.setText(text + "\n\n" + textKeyboard);
       }
 
       if (isNotEmpty(fileAttachments)) {
