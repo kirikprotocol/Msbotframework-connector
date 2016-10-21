@@ -451,8 +451,9 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   }
 
   private String getLocalizedProperty(SADSRequest request, String name, String defaultValue) {
-    // FIXME: "lang" is in ContentRequest!
-    final String lang = request.getParameters().get("lang");
+    final String lang = Optional
+        .fromNullable(request.getParameters().get("lang"))
+        .or((String) request.getAttributes().get("lang"));
 
     final Properties attrs = request.getServiceScenario().getAttributes();
 
