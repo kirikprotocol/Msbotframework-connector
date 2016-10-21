@@ -2,7 +2,6 @@ package com.eyelinecom.whoisd.sads2.msbotframework.connector;
 
 import com.eyelinecom.whoisd.sads2.Protocol;
 import com.eyelinecom.whoisd.sads2.common.InitUtils;
-import com.eyelinecom.whoisd.sads2.common.ProfileUtil;
 import com.eyelinecom.whoisd.sads2.common.SADSUrlUtils;
 import com.eyelinecom.whoisd.sads2.common.UrlUtils;
 import com.eyelinecom.whoisd.sads2.connector.ChatCommand;
@@ -180,7 +179,8 @@ public class MbfMessageConnector extends HttpServlet {
         if (profile != null) {
           final boolean isDevModeEnabled = inProfile(profile).getDeveloperMode(getServiceId(req));
           if (isDevModeEnabled) {
-            profile.delete();
+            inProfile(profile).clear();
+            inProfile(profile).setDeveloperMode(getServiceId(req), true);
           }
         }
       }
@@ -244,7 +244,7 @@ public class MbfMessageConnector extends HttpServlet {
       final String serviceId = getServiceId(req);
 
       final boolean isDevModeEnabled = req.getProfile() != null &&
-          ProfileUtil.inProfile(req.getProfile()).getDeveloperMode(serviceId);
+          inProfile(req.getProfile()).getDeveloperMode(serviceId);
 
       final ChatCommand command = ChatCommand.match(
           serviceId,
@@ -390,10 +390,8 @@ public class MbfMessageConnector extends HttpServlet {
             new Date(),
             StringUtils.join(
                 new String[] {
-                    "Application ID: " + bot.getAppId() + ".",
-                    "Secret: " + bot.getAppSecret() + ".",
                     "Service: " + serviceId + ".",
-                    "Mobilizer instance: " + getRootUri()
+                    "MiniApps host: " + getRootUri()
                 },
                 "\n\n")
         );
