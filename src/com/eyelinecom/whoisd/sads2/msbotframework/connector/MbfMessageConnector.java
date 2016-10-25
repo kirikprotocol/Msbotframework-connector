@@ -181,6 +181,14 @@ public class MbfMessageConnector extends HttpServlet {
           if (isDevModeEnabled) {
             inProfile(profile).clear();
             inProfile(profile).setDeveloperMode(getServiceId(req), true);
+
+            // Also clear the session.
+            final SessionManager sessionManager =
+                getSessionManager(req.asMessage().getProtocol(), getServiceId(req));
+            final Session session = sessionManager.getSession(profile.getWnumber(), false);
+            if (session != null && !session.isClosed()) {
+              session.close();
+            }
           }
         }
       }
