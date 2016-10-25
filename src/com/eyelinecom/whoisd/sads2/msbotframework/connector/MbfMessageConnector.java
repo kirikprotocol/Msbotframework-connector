@@ -265,7 +265,7 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     @Override
-    protected Long getRequestTimestamp(MbfWebhookRequest req) {
+    protected Long getEventOrder(MbfWebhookRequest req) {
       try {
         final Date reqTimestamp = req.asMessage().getTimestamp();
         return reqTimestamp == null ? null : reqTimestamp.getTime();
