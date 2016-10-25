@@ -265,6 +265,18 @@ public class MbfMessageConnector extends HttpServlet {
     }
 
     @Override
+    protected Long getRequestTimestamp(MbfWebhookRequest req) {
+      try {
+        final Date reqTimestamp = req.asMessage().getTimestamp();
+        return reqTimestamp == null ? null : reqTimestamp.getTime();
+
+      } catch (IOException | MbfException e) {
+        getLog(req).error("Failed obtaining request timestamp", e);
+        return null;
+      }
+    }
+
+    @Override
     protected void fillSADSRequest(SADSRequest sadsRequest, MbfWebhookRequest req) {
       try {
         // We might need an original message for constructing reply.
