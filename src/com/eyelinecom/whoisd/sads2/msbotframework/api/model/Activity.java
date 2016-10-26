@@ -268,8 +268,9 @@ public class Activity extends ApiType<Activity> {
     return text;
   }
 
-  public void setText(String text) {
+  public Activity setText(String text) {
     this.text = text;
+    return this;
   }
 
   public String getSummary() {
@@ -314,8 +315,9 @@ public class Activity extends ApiType<Activity> {
   }
 
   @JsonIgnore
-  public void setChannelData(ChannelData channelData) {
+  public Activity setChannelData(ChannelData channelData) {
     this.channelData = channelData;
+    return this;
   }
 
   public String getAction() {

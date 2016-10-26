@@ -35,6 +35,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -75,6 +76,23 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   private static final Logger log = Logger.getLogger(MbfPushInterceptor.class);
 
   private static final int FB_ACTIONS_PER_GROUP = 3;
+
+  /**
+   * Maximal allowed text message length, symbols. Applies to messages with no buttons or
+   * button template (i.e. 3 buttons without a bubble).
+   *
+   * <p>Actually, this is declared to be 320 symbols by FB API, but in fact MBF still splits
+   * messages at ~300 symbols boundary. And since it doesn't actually care about smart splitting
+   * (e.g. taking newlines and other separators in the markup into account) that's better be done
+   * on our side.
+   */
+  private static final int FB_MAX_MSG_SIZE = 300;
+
+  /**
+   * Maximal allowed text message length, symbols. Applies to generic template header
+   * (i.e. message with more than 3 buttons).
+   */
+  private static final int FB_BUBBLE_HEADER_SIZE = 80;
 
   private MbfServiceRegistry serviceRegistry;
   private MbfApi client;
@@ -237,89 +255,144 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
       } else if (buttons.size() <= FB_ACTIONS_PER_GROUP) {
         // Message with links, use FB's ButtonTemplate.
-
-        final List<String> textParts = StringUtils.splitText(text, '\n', 320);
-
-        if (textParts.size() == 1) {
-          // Text fits into a single ButtonTemplate, send via HeroCard.
-          final Activity msg = createActivityTemplate(request, bot);
-
-          final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
-            add(HeroCard.fromOptions(text, labels));
-            addAll(fileAttachments);
-          }};
-          msg.setAttachments(attachments);
-
-          return Collections.singletonList(msg);
-
-        } else {
-          // First, send all the text split into several messages,
-          final List<Activity> messages = new ArrayList<>();
-
-          for (final String textPart : textParts) {
-            final Activity msg = createActivityTemplate(request, bot);
-            msg.setText(textPart);
-            messages.add(msg);
-          }
-
-          // .. and the last one as a bubble w/ all remaining links & attachments.
-          final Activity msg = createActivityTemplate(request, bot);
-          final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
-            add(HeroCard.fromOptions(getFbSingleBubbleHeader(request), labels));
-            addAll(fileAttachments);
-          }};
-          msg.setAttachments(attachments);
-
-          messages.add(msg);
-
-          return Collections.unmodifiableList(messages);
-        }
+        return createFbButtonTemplate(request, bot, text, labels, fileAttachments);
 
       } else {
         // Use FB's Generic template via ChannelData.
-
-        if (text.length() <= 80) {
-          // Text fits into a single GenericTemplate.
-          final Activity msg = createActivityTemplate(request, bot);
-          msg.setChannelData(asFbGenericTemplate(text, labels));
-
-          if (isNotEmpty(fileAttachments)) {
-            final ArrayList<MbfAttachment> attachments = new ArrayList<>();
-            attachments.addAll(fileAttachments);
-            msg.setAttachments(attachments);
-          }
-
-          return Collections.singletonList(msg);
-
-        } else {
-          final List<String> textParts = StringUtils.splitText(text, '\n', 320);
-
-          final List<Activity> messages = new ArrayList<>();
-
-          for (final String textPart : textParts) {
-            final Activity msg = createActivityTemplate(request, bot);
-            msg.setText(textPart);
-            messages.add(msg);
-          }
-
-          final Activity msg = createActivityTemplate(request, bot);
-          msg.setChannelData(asFbGenericTemplate(getFbSingleBubbleHeader(request), labels));
-
-          if (isNotEmpty(fileAttachments)) {
-            final ArrayList<MbfAttachment> attachments = new ArrayList<>();
-            attachments.addAll(fileAttachments);
-            msg.setAttachments(attachments);
-          }
-
-          messages.add(msg);
-
-          return Collections.unmodifiableList(messages);
-        }
+        return createFbGenericTemplate(request, bot, text, labels, fileAttachments);
       }
 
     } else {
       // Unsupported protocol.
       return Collections.emptyList();
+    }
+  }
+
+  private List<Activity> createFbButtonTemplate(SADSRequest request,
+                                                MbfBotDetails bot,
+                                                final String text,
+                                                final List<String> labels,
+                                                final List<MbfAttachment> fileAttachments) {
+
+    final List<String> textParts = StringUtils.splitText(text, '\n', FB_MAX_MSG_SIZE);
+
+    if (textParts.size() == 1) {
+      // Text fits into a single ButtonTemplate, send via HeroCard.
+      final Activity msg = createActivityTemplate(request, bot);
+
+      final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
+        add(HeroCard.fromOptions(text, labels));
+        addAll(fileAttachments);
+      }};
+      msg.setAttachments(attachments);
+
+      return Collections.singletonList(msg);
+
+    } else {
+      final List<Activity> messages = new ArrayList<>();
+
+      // First, send all the text split into several messages except the last one
+      for (int i = 0; i < textParts.size() - 1; i++) {
+        messages.add(
+            createActivityTemplate(request, bot)
+                .setText(textParts.get(i))
+        );
+      }
+
+      // Then the last text part as a bubble w/ all remaining links & attachments.
+      final Activity msg = createActivityTemplate(request, bot);
+      final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
+        final String lastTextPart = textParts.get(textParts.size() - 1);
+        add(HeroCard.fromOptions(lastTextPart, labels));
+        addAll(fileAttachments);
+      }};
+      msg.setAttachments(attachments);
+
+      messages.add(msg);
+
+      return Collections.unmodifiableList(messages);
+    }
+  }
+
+  private List<Activity> createFbGenericTemplate(SADSRequest request,
+                                                 MbfBotDetails bot,
+                                                 String text,
+                                                 List<String> labels,
+                                                 List<MbfAttachment> fileAttachments) {
+
+    if (text.length() <= FB_BUBBLE_HEADER_SIZE) {
+      // Text fits into a single GenericTemplate.
+      final Activity msg = createActivityTemplate(request, bot);
+      msg.setChannelData(asFbGenericTemplate(text, labels));
+
+      if (isNotEmpty(fileAttachments)) {
+        final ArrayList<MbfAttachment> attachments = new ArrayList<>();
+        attachments.addAll(fileAttachments);
+        msg.setAttachments(attachments);
+      }
+
+      return Collections.singletonList(msg);
+
+    } else {
+      final List<String> textParts = StringUtils.splitText(text, '\n', FB_MAX_MSG_SIZE);
+
+      final List<Activity> messages = new ArrayList<>();
+
+      for (int i = 0; i < textParts.size() - 1; i++) {
+        messages.add(
+            createActivityTemplate(request, bot)
+                .setText(textParts.get(i))
+        );
+      }
+
+      final String lastPart = textParts.get(textParts.size() - 1);
+
+      if (lastPart.length() < FB_BUBBLE_HEADER_SIZE) {
+        final Activity msg = createActivityTemplate(request, bot);
+        msg.setChannelData(asFbGenericTemplate(lastPart, labels));
+
+        messages.add(msg);
+
+      } else {
+        final Pair<String, String> lastSmallPart = StringUtils.chopTail(text, '\n', FB_BUBBLE_HEADER_SIZE);
+
+        if (lastSmallPart == null) {
+          // Cannot cut small piece from the end.
+          messages.add(
+              createActivityTemplate(request, bot)
+                  .setText(text)
+          );
+
+          messages.add(
+              createActivityTemplate(request, bot)
+                  .setChannelData(asFbGenericTemplate(facebookBubbleHeader, labels))
+          );
+
+        } else {
+          final String plainMessagePart = lastSmallPart.getLeft();
+          final String bubbleHeader = lastSmallPart.getRight();
+
+          if (plainMessagePart != null) {
+            messages.add(
+                createActivityTemplate(request, bot)
+                    .setText(plainMessagePart)
+            );
+          }
+
+          messages.add(
+              createActivityTemplate(request, bot)
+                  .setChannelData(asFbGenericTemplate(bubbleHeader, labels))
+          );
+        }
+      }
+
+      if (isNotEmpty(fileAttachments)) {
+        final ArrayList<MbfAttachment> attachments = new ArrayList<>();
+        attachments.addAll(fileAttachments);
+        messages.get(messages.size() - 1).setAttachments(attachments);
+      }
+
+      return Collections.unmodifiableList(messages);
     }
   }
 
@@ -444,21 +517,6 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     loader = SADSInitUtils.getResource("loader", config);
     fileCache = SADSInitUtils.getResource("file-cache", config);
     facebookBubbleHeader = SADSInitUtils.getString("facebook.bubble.header", ".", config);
-  }
-
-  protected String getFbSingleBubbleHeader(SADSRequest request) {
-    return getLocalizedProperty(request, "facebook.single.bubble.header", ".");
-  }
-
-  private String getLocalizedProperty(SADSRequest request, String name, String defaultValue) {
-    final String lang = Optional
-        .fromNullable(request.getParameters().get("lang"))
-        .or((String) request.getAttributes().get("lang"));
-
-    final Properties attrs = request.getServiceScenario().getAttributes();
-
-    final String localized = lang != null ? attrs.getProperty(name + "." + lang) : null;
-    return Optional.fromNullable(localized).or(attrs.getProperty(name, defaultValue));
   }
 
   @Override

@@ -27,11 +27,6 @@ public class MbfPushInterceptorTest {
       Activity createActivityTemplate(SADSRequest request, MbfBotDetails bot) {
         return new Activity();
       }
-
-      @Override
-      protected String getFbSingleBubbleHeader(SADSRequest request) {
-        return ".";
-      }
     };
 
     final Document page = DocumentUtils.parseDocument(
