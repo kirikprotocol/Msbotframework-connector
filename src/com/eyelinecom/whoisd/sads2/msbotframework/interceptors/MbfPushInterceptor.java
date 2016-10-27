@@ -35,7 +35,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.IteratorUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -61,6 +60,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.notNull;
 import static com.google.common.collect.Collections2.filter;
 import static com.google.common.collect.Collections2.transform;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Lists.partition;
 import static java.util.Collections.singletonList;
@@ -268,7 +268,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     }
   }
 
-  private List<Activity> createFbButtonTemplate(SADSRequest request,
+  private List<Activity> createFbButtonTemplate(final SADSRequest request,
                                                 MbfBotDetails bot,
                                                 final String text,
                                                 final List<String> labels,
@@ -291,19 +291,18 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     } else {
       final List<Activity> messages = new ArrayList<>();
 
-      // First, send all the text split into several messages except the last one
-      for (int i = 0; i < textParts.size() - 1; i++) {
+      // First, send all the text split into several messages
+      for (String textPart : textParts) {
         messages.add(
             createActivityTemplate(request, bot)
-                .setText(textParts.get(i))
+                .setText(textPart)
         );
       }
 
       // Then the last text part as a bubble w/ all remaining links & attachments.
       final Activity msg = createActivityTemplate(request, bot);
       final ArrayList<MbfAttachment> attachments = new ArrayList<MbfAttachment>() {{
-        final String lastTextPart = textParts.get(textParts.size() - 1);
-        add(HeroCard.fromOptions(lastTextPart, labels));
+        add(HeroCard.fromOptions(getFbSingleBubbleHeader(request), labels));
         addAll(fileAttachments);
       }};
       msg.setAttachments(attachments);
@@ -338,61 +337,22 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
       final List<Activity> messages = new ArrayList<>();
 
-      for (int i = 0; i < textParts.size() - 1; i++) {
+      for (String textPart : textParts) {
         messages.add(
             createActivityTemplate(request, bot)
-                .setText(textParts.get(i))
+                .setText(textPart)
         );
       }
 
-      final String lastPart = textParts.get(textParts.size() - 1);
-
-      if (lastPart.length() < FB_BUBBLE_HEADER_SIZE) {
-        final Activity msg = createActivityTemplate(request, bot);
-        msg.setChannelData(asFbGenericTemplate(lastPart, labels));
-
-        messages.add(msg);
-
-      } else {
-        Pair<String, String> lastSmallPart = StringUtils.chopTail(lastPart, '\n', FB_BUBBLE_HEADER_SIZE);
-        if (lastSmallPart == null) {
-          lastSmallPart = StringUtils.chopTail(lastPart, ' ', FB_BUBBLE_HEADER_SIZE);
-        }
-
-        if (lastSmallPart == null) {
-          // Cannot cut small piece from the end .
-          messages.add(
-              createActivityTemplate(request, bot)
-                  .setText(lastPart)
-          );
-
-          messages.add(
-              createActivityTemplate(request, bot)
-                  .setChannelData(asFbGenericTemplate(facebookBubbleHeader, labels))
-          );
-
-        } else {
-          final String plainMessagePart = lastSmallPart.getLeft();
-          final String bubbleHeader = lastSmallPart.getRight();
-
-          if (plainMessagePart != null) {
-            messages.add(
-                createActivityTemplate(request, bot)
-                    .setText(plainMessagePart)
-            );
-          }
-
-          messages.add(
-              createActivityTemplate(request, bot)
-                  .setChannelData(asFbGenericTemplate(bubbleHeader, labels))
-          );
-        }
-      }
+      messages.add(
+          createActivityTemplate(request, bot)
+              .setChannelData(asFbGenericTemplate(getFbSingleBubbleHeader(request), labels))
+      );
 
       if (isNotEmpty(fileAttachments)) {
         final ArrayList<MbfAttachment> attachments = new ArrayList<>();
         attachments.addAll(fileAttachments);
-        messages.get(messages.size() - 1).setAttachments(attachments);
+        getLast(messages).setAttachments(attachments);
       }
 
       return Collections.unmodifiableList(messages);
@@ -511,6 +471,22 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       buf.append(text);
     }
     return buf.toString().trim();
+  }
+
+  protected String getFbSingleBubbleHeader(SADSRequest request) {
+    return getLocalizedProperty(request, "facebook.single.bubble.header", ".");
+  }
+
+  private String getLocalizedProperty(SADSRequest request, String name, String defaultValue) {
+    final String lang = Optional
+        .fromNullable((String) request.getAttributes().get("lang"))
+        .or(Optional.fromNullable(request.getParameters().get("lang")))
+        .orNull();
+
+    final Properties attrs = request.getServiceScenario().getAttributes();
+
+    final String localized = lang != null ? attrs.getProperty(name + "." + lang) : null;
+    return Optional.fromNullable(localized).or(attrs.getProperty(name, defaultValue));
   }
 
   @Override

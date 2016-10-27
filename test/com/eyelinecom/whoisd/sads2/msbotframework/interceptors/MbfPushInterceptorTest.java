@@ -7,12 +7,14 @@ import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.MbfAttachment;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.attachments.HeroCard;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
+import com.eyelinecom.whoisd.sads2.registry.ServiceConfig;
 import com.google.common.collect.Iterables;
 import org.dom4j.Document;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Properties;
 
 import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static junit.framework.Assert.assertEquals;
@@ -42,10 +44,7 @@ public class MbfPushInterceptorTest {
         ).getBytes(StandardCharsets.UTF_8)
     );
 
-    final SADSRequest request = new SADSRequest() {
-      @Override public Protocol getProtocol() { return FACEBOOK; }
-      @Override public String getResourceURI() { return "/"; }
-    };
+    final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
         mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
@@ -62,7 +61,6 @@ public class MbfPushInterceptorTest {
 
     assertEquals("Введите персональный пароль", card.getText());
   }
-
 
   @Test
   public void test2() throws Exception {
@@ -87,10 +85,7 @@ public class MbfPushInterceptorTest {
         ).getBytes(StandardCharsets.UTF_8)
     );
 
-    final SADSRequest request = new SADSRequest() {
-      @Override public Protocol getProtocol() { return FACEBOOK; }
-      @Override public String getResourceURI() { return "/"; }
-    };
+    final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
         mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
@@ -121,15 +116,28 @@ public class MbfPushInterceptorTest {
         ).getBytes(StandardCharsets.UTF_8)
     );
 
-    final SADSRequest request = new SADSRequest() {
-      @Override public Protocol getProtocol() { return FACEBOOK; }
-      @Override public String getResourceURI() { return "/"; }
-    };
+    final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
         mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
 
     assertEquals(3, rc.size());
+  }
+
+  private SADSRequest newMockRequest() {
+    return new SADSRequest() {
+      @Override public Protocol getProtocol() { return FACEBOOK; }
+      @Override public String getResourceURI() { return "/"; }
+
+      @Override
+      public ServiceConfig getServiceScenario() {
+        return new ServiceConfig() {
+          @Override public Properties getAttributes() { return new Properties(); }
+          @Override public String getId() { return "eyeline.test"; }
+          @Override public boolean isEmpty() { return false; }
+        };
+      }
+    };
   }
 
 }
