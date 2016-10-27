@@ -354,13 +354,16 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         messages.add(msg);
 
       } else {
-        final Pair<String, String> lastSmallPart = StringUtils.chopTail(text, '\n', FB_BUBBLE_HEADER_SIZE);
+        Pair<String, String> lastSmallPart = StringUtils.chopTail(lastPart, '\n', FB_BUBBLE_HEADER_SIZE);
+        if (lastSmallPart == null) {
+          lastSmallPart = StringUtils.chopTail(lastPart, ' ', FB_BUBBLE_HEADER_SIZE);
+        }
 
         if (lastSmallPart == null) {
-          // Cannot cut small piece from the end.
+          // Cannot cut small piece from the end .
           messages.add(
               createActivityTemplate(request, bot)
-                  .setText(text)
+                  .setText(lastPart)
           );
 
           messages.add(
