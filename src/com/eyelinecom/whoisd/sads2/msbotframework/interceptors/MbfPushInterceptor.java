@@ -34,6 +34,7 @@ import com.eyelinecom.whoisd.sads2.profile.Profile;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.IteratorUtils;
 import org.apache.log4j.Logger;
 import org.dom4j.Document;
@@ -145,10 +146,12 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     final Document doc = (Document) response.getAttributes().get(PageBuilder.VALUE_DOCUMENT);
 
     final List<Element> buttons = getKeyboard(doc);
+    final Collection<Attachment> attachments = Attachment.extract(log, doc);
 
     String text = getText(doc);
 
-    final boolean isNothingToSend = isBlank(text) && buttons == null;
+    final boolean isNothingToSend =
+        isBlank(text) && buttons == null && CollectionUtils.isEmpty(attachments);
     if (!isNothingToSend) {
       // Messages with no text are not allowed.
       text = text.isEmpty() ? "." : text;
@@ -188,7 +191,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
           ));
 
 
-      final List<Activity> activities = createResponse(request, bot, doc, text);
+      final List<Activity> activities = createResponse(request, bot, doc, text, attachments);
       for (Activity activity : activities) {
         client.send(bot, activity);
       }
@@ -201,7 +204,11 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
     }
   }
 
-  List<Activity> createResponse(final SADSRequest request, MbfBotDetails bot, Document doc, final String text) {
+  List<Activity> createResponse(final SADSRequest request,
+                                MbfBotDetails bot,
+                                Document doc,
+                                final String text,
+                                Collection<Attachment> rawFileAttachments) {
 
     final List<Element> buttons = getKeyboard(doc);
 
@@ -211,14 +218,10 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
     // File attachments.
     final List<MbfAttachment> fileAttachments = new ArrayList<>();
-    {
-      final Collection<Attachment> rawFileAttachments = Attachment.extract(log, doc);
-      if (isNotEmpty(rawFileAttachments)) {
-        final MbfAttachmentConverter converter =
-            new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
-
-        fileAttachments.addAll(filter(transform(rawFileAttachments, converter), notNull()));
-      }
+    if (isNotEmpty(rawFileAttachments)) {
+      final MbfAttachmentConverter converter =
+          new MbfAttachmentConverter(log, loader, fileCache, request.getResourceURI());
+      fileAttachments.addAll(filter(transform(rawFileAttachments, converter), notNull()));
     }
 
     if (request.getProtocol() == SKYPE) {

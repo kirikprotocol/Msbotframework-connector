@@ -47,7 +47,7 @@ public class MbfPushInterceptorTest {
     final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
-        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
+        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page), null);
 
     final Activity msg = Iterables.getOnlyElement(rc);
     assertNull(msg.getText());
@@ -88,7 +88,7 @@ public class MbfPushInterceptorTest {
     final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
-        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
+        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page), null);
 
     assertEquals(4, rc.size());
   }
@@ -119,7 +119,7 @@ public class MbfPushInterceptorTest {
     final SADSRequest request = newMockRequest();
 
     final List<Activity> rc =
-        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page));
+        mbfPushInterceptor.createResponse(request, null, page, MbfPushInterceptor.getText(page), null);
 
     assertEquals(3, rc.size());
   }
