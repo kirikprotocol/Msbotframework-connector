@@ -57,8 +57,17 @@ public class MbfAttachmentConverter
         contentType = upload.getMime();
 
       } else {
-       contentType =
+       String guessedMime =
             URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(upload.getBytes()));
+       if (guessedMime == null) {
+         // URLConnection supports a very limited subset of content types, so
+         // try guessing by extension.
+         if (upload.getFileName() != null &&
+             upload.getFileName().toLowerCase().endsWith(".bmp")) {
+           guessedMime = "image/bmp";
+         }
+       }
+       contentType = guessedMime;
       }
 
     } catch (IOException e) {
