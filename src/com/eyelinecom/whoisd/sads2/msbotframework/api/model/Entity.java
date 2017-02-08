@@ -1,18 +1,21 @@
 package com.eyelinecom.whoisd.sads2.msbotframework.api.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(
     use       = JsonTypeInfo.Id.NAME,
     include   = JsonTypeInfo.As.PROPERTY,
-    property  = "type")
+    property  = "type",
+    defaultImpl = Entity.UnknownEntity.class)
 @JsonSubTypes({
     @JsonSubTypes.Type(value = Entity.Mention.class,          name = "mention"),
     @JsonSubTypes.Type(value = Entity.Place.class,            name = "Place"),
-    @JsonSubTypes.Type(value = Entity.GeoCoordinates.class,   name = "GeoCoordinates")
+    @JsonSubTypes.Type(value = Entity.GeoCoordinates.class,   name = "GeoCoordinates"),
+    @JsonSubTypes.Type(value = Entity.UnknownEntity.class,   name = "UnknownEntity")
 })
 public abstract class Entity extends ApiType<Entity> {
 
@@ -187,6 +190,23 @@ public abstract class Entity extends ApiType<Entity> {
 
     public void setElevation(Double elevation) {
       this.elevation = elevation;
+    }
+  }
+
+  public static class UnknownEntity extends Entity{
+
+    Map<String,Object> defaultContent = new HashMap<>();
+
+    public UnknownEntity() {}
+
+    @JsonAnySetter
+    public void setDefaultContent(String name, Object value) {
+      defaultContent.put(name,value);
+    }
+
+    @JsonAnyGetter
+    public Map<String,Object> getDefaultContent(){
+      return defaultContent;
     }
   }
 }

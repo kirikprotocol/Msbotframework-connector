@@ -198,5 +198,47 @@ public class ActivityTest {
 
     MarshalUtils.unmarshal(msg, Activity.class);
   }
+  @Test
+    public void test6() throws Exception {
+      final String msg = "{\n" +
+          "  \"type\": \"message\",\n" +
+          "  \"id\": \"1486375184052\",\n" +
+          "  \"timestamp\": \"2017-02-06T09:59:44.047Z\",\n" +
+          "  \"serviceUrl\": \"https://skype.botframework.com\",\n" +
+          "  \"channelId\": \"skype\",\n" +
+          "  \"from\": {\n" +
+          "    \"id\": \"29:1U6oxtSaBmnwRprtHKz1viTh0fLlvMJQIowoH3lSMBqc\",\n" +
+          "    \"name\": \"Belsky Andy\"\n" +
+          "  },\n" +
+          "  \"conversation\": {\n" +
+          "    \"id\": \"29:1U6oxtSaBmnwRprtHKz1viTh0fLlvMJQIowoH3lSMBqc\"\n" +
+          "  },\n" +
+          "  \"recipient\": {\n" +
+          "    \"id\": \"28:7b5b439a-ee8e-42cd-bcac-fe7c783d8e8e\",\n" +
+          "    \"name\": \"MiniAppsProxyBot\"\n" +
+          "  },\n" +
+          "  \"text\": \"123\",\n" +
+          "  \"entities\": [\n" +
+          "    {\n" +
+          "      \"type\": \"clientInfo\",\n" +
+          "      \"data\": {\n" +
+          "        \"os\": \"MacOS-X\",\n" +
+          "        \"osVersion\": \"Mac OS-X Darwin 15.6\",\n" +
+          "        \"lcid\": 1049,\n" +
+          "        \"deviceType\": \"\",\n" +
+          "        \"country\": \"ru\",\n" +
+          "        \"clientName\": \"Skype\",\n" +
+          "        \"clientVersion\": \"3/7.42.0.200\"\n" +
+          "      }\n" +
+          "    }\n" +
+          "  ]\n" +
+          "}";
+
+
+      Activity activity = MarshalUtils.unmarshal(msg, Activity.class);
+      if(activity.getEntities().length<1){
+        throw new Exception();
+      }
+    }
 
 }
