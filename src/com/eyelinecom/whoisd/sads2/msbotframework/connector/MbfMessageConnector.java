@@ -467,7 +467,7 @@ public class MbfMessageConnector extends HttpServlet {
           final String btnLabel = e.getTextTrim();
           final String btnIndex = e.attributeValue("index");
 
-          if (equalsIgnoreCase(btnLabel, incoming) || equalsIgnoreCase(btnIndex, incoming)) {
+          if (equalsIgnoreCase(btnLabel, incoming) || (protocol != Protocol.FACEBOOK && equalsIgnoreCase(btnIndex, incoming))) {
             final String btnHref = e.attributeValue("href");
             href = btnHref != null ? btnHref : e.attributeValue("target");
 
