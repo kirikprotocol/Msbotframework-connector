@@ -214,6 +214,9 @@ public class MbfMessageConnector extends HttpServlet {
 
       req.setProfile(profile);
 
+      MbfApi.setApiUrl(
+          getProfileStorage(), req.getAppId(), msg.getProtocol(), msg.getServiceUrl());
+
       //noinspection ConstantConditions
       return profile.getWnumber();
     }

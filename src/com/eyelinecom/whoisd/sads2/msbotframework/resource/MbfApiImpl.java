@@ -8,6 +8,7 @@ import com.eyelinecom.whoisd.sads2.executors.connector.Context;
 import com.eyelinecom.whoisd.sads2.msbotframework.MbfException;
 import com.eyelinecom.whoisd.sads2.msbotframework.api.model.Activity;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
+import com.eyelinecom.whoisd.sads2.profile.ProfileStorage;
 import com.eyelinecom.whoisd.sads2.resource.ResourceFactory;
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.tuple.Pair;
@@ -29,15 +30,21 @@ public class MbfApiImpl implements MbfApi {
 
   private final HttpDataLoader loader;
   private final DetailedStatLogger detailedStatLogger;
+  private final ProfileStorage profileStorage;
 
   /**
    * Maximal allowed messages per second, overall.
    */
   private final RateLimiter messagesPerSecondLimit;
 
-  private MbfApiImpl(HttpDataLoader loader, DetailedStatLogger detailedStatLogger, Properties properties) {
+  private MbfApiImpl(HttpDataLoader loader,
+                     DetailedStatLogger detailedStatLogger,
+                     ProfileStorage profileStorage,
+                     Properties properties) {
+
     this.loader = loader;
     this.detailedStatLogger = detailedStatLogger;
+    this.profileStorage = profileStorage;
 
     final float limitMessagesPerSecond =
         Float.parseFloat(properties.getProperty("mbf.limit.messages.per.second", "30"));
@@ -58,7 +65,7 @@ public class MbfApiImpl implements MbfApi {
     }
 
     if (activity.getServiceUrl() == null) {
-      activity.setServiceUrl(guessServiceUrl(activity));
+      activity.setServiceUrl(guessServiceUrl(bot, activity));
     }
 
     if (Context.getSadsRequest() != null) {
@@ -80,18 +87,24 @@ public class MbfApiImpl implements MbfApi {
     }
   }
 
-  private String guessServiceUrl(Activity msg) {
+  private String guessServiceUrl(MbfBotDetails bot, Activity msg) {
     checkArgument(msg.getServiceUrl() == null,
         "Internal service URL should be used if available");
 
-    switch (msg.getProtocol()) {
-      case SKYPE:     return SKYPE_API_ROOT;
-      case FACEBOOK:  return FB_API_ROOT;
+    return MbfApi.getApiUrl(profileStorage, bot.getAppId(), msg.getProtocol())
+        .orElseGet(() -> {
+          log.warn("MBF API root missing in system profile for activity = [" + msg + "]");
 
-      default:
-        log.warn("Cannot determine API ROOT for activity [" + msg + "]");
-        return API_ROOT;
-    }
+          switch (msg.getProtocol()) {
+            case SKYPE:     return SKYPE_API_ROOT;
+            case FACEBOOK:  return FB_API_ROOT;
+
+            default:
+              log.warn("Cannot guess API root for activity [" + msg + "]");
+              return API_ROOT;
+          }
+        });
+
   }
 
   private BotApiClient getClient(MbfBotDetails bot) {
@@ -106,9 +119,14 @@ public class MbfApiImpl implements MbfApi {
                         Properties properties,
                         HierarchicalConfiguration config) throws Exception {
 
-      final HttpDataLoader loader = SADSInitUtils.getResource("loader", properties);
-      final DetailedStatLogger detailedStatLogger = SADSInitUtils.getResource("detailed-stat-logger", properties);
-      return new MbfApiImpl(loader, detailedStatLogger, properties);
+      final HttpDataLoader loader =
+          SADSInitUtils.getResource("loader", properties);
+      final DetailedStatLogger detailedStatLogger =
+          SADSInitUtils.getResource("detailed-stat-logger", properties);
+      final ProfileStorage profileStorage =
+          SADSInitUtils.getResource("profile-storage", properties);
+
+      return new MbfApiImpl(loader, detailedStatLogger, profileStorage, properties);
     }
 
     @Override public boolean isHeavyResource() { return false; }
