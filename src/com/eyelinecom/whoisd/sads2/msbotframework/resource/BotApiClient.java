@@ -42,17 +42,19 @@ public class BotApiClient {
    * @return {@code <token, lifetime delta>}
    */
   Pair<String, Integer> requestToken() throws MbfException {
-    log.debug("Requesting token: appId = [" + appId + "], appSecret = [" + appSecret + "]");
+    if (log.isDebugEnabled()) {
+      log.debug("Requesting token: appId = [" + appId + "], appSecret = [" + appSecret + "]");
+    }
 
     try {
       final Entity rc = loader.load(
-          "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+          "https://login.microsoftonline.com/botframework.com/oauth2/v2.0/token",
           join(
               new String[] {
                   "client_id=" + appId,
                   "client_secret=" + appSecret,
                   "grant_type=client_credentials",
-                  "scope=" + encode("https://graph.microsoft.com/.default", "UTF-8")
+                  "scope=" + encode("https://api.botframework.com/.default", "UTF-8")
               },
               "&"
           ),
