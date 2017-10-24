@@ -14,6 +14,7 @@ import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 
+import java.text.MessageFormat;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -26,6 +27,9 @@ public class MbfApiImpl implements MbfApi {
   private static final String SKYPE_API_ROOT  = "https://skype.botframework.com";
   private static final String FB_API_ROOT     = "https://facebook.botframework.com";
 
+  private static final String DEFAULT_LOCATION_LINK_URL  = "https://www.google.ru/maps/search/?api=1&query={1},{0}";
+  private static final String DEFAULT_LOCATION_IMAGE_URL = "https://maps.googleapis.com/maps/api/staticmap?size=764x400&center={1},{0}&zoom=15&markers=color:red|label:.|{1},{0}";
+
   private static final Logger log = Logger.getLogger(MbfApiImpl.class);
 
   private final HttpDataLoader loader;
@@ -36,6 +40,8 @@ public class MbfApiImpl implements MbfApi {
    * Maximal allowed messages per second, overall.
    */
   private final RateLimiter messagesPerSecondLimit;
+  private final String locationLinkUrl;
+  private final String locationImageUrl;
 
   private MbfApiImpl(HttpDataLoader loader,
                      DetailedStatLogger detailedStatLogger,
@@ -48,6 +54,8 @@ public class MbfApiImpl implements MbfApi {
 
     final float limitMessagesPerSecond =
         Float.parseFloat(properties.getProperty("mbf.limit.messages.per.second", "30"));
+    this.locationLinkUrl = properties.getProperty("location-link-url", DEFAULT_LOCATION_LINK_URL);
+    this.locationImageUrl = properties.getProperty("location-image-url", DEFAULT_LOCATION_IMAGE_URL);
     this.messagesPerSecondLimit = RateLimiter.create(limitMessagesPerSecond);
   }
 
@@ -85,6 +93,16 @@ public class MbfApiImpl implements MbfApi {
     if (bot.shouldRefreshToken()) {
       bot.setToken(authToken.getKey(), authToken.getValue());
     }
+  }
+
+  @Override
+  public String locationLinkUrl(double latitude, double longitude) {
+    return MessageFormat.format(locationLinkUrl, String.valueOf(latitude), String.valueOf(longitude));
+  }
+
+  @Override
+  public String locationImageUrl(double latitude, double longitude) {
+    return MessageFormat.format(locationImageUrl, String.valueOf(latitude), String.valueOf(longitude));
   }
 
   private String guessServiceUrl(MbfBotDetails bot, Activity msg) {

@@ -31,7 +31,6 @@ import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfBotDetails;
 import com.eyelinecom.whoisd.sads2.msbotframework.registry.MbfServiceRegistry;
 import com.eyelinecom.whoisd.sads2.msbotframework.resource.MbfApi;
 import com.eyelinecom.whoisd.sads2.profile.Profile;
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.cache.Cache;
 import org.apache.commons.collections.CollectionUtils;
@@ -51,6 +50,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static com.eyelinecom.whoisd.sads2.Protocol.FACEBOOK;
 import static com.eyelinecom.whoisd.sads2.Protocol.SKYPE;
@@ -224,6 +224,9 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       fileAttachments.addAll(filter(transform(rawFileAttachments, converter), notNull()));
     }
 
+    List<Location> locations = rawFileAttachments.stream().map(Location::get).filter(a -> a != null)
+      .collect(Collectors.<Location>toList());
+
     if (request.getProtocol() == SKYPE) {
       final Activity msg = createActivityTemplate(request, bot);
 
@@ -251,6 +254,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         if (isNotEmpty(fileAttachments)) {
           final ArrayList<MbfAttachment> attachments = new ArrayList<>();
           attachments.addAll(fileAttachments);
+          msg.setChannelData(asFbLocationsGenericTemplate(locations));
           msg.setAttachments(attachments);
         }
 
@@ -258,7 +262,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
       } else if (buttons.size() <= FB_ACTIONS_PER_GROUP) {
         // Message with links, use FB's ButtonTemplate.
-        return createFbButtonTemplate(request, bot, text, labels, fileAttachments);
+        return createFbButtonTemplate(request, bot, text, labels, fileAttachments, locations);
 
       } else {
         // Use FB's Generic template via ChannelData.
@@ -275,7 +279,8 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
                                                 MbfBotDetails bot,
                                                 final String text,
                                                 final List<String> labels,
-                                                final List<MbfAttachment> fileAttachments) {
+                                                final List<MbfAttachment> fileAttachments,
+                                                final List<Location> locations) {
 
     final List<String> textParts = StringUtils.splitText(text, '\n', FB_MAX_MSG_SIZE);
 
@@ -288,6 +293,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         addAll(fileAttachments);
       }};
       msg.setAttachments(attachments);
+      msg.setChannelData(asFbLocationsGenericTemplate(locations));
 
       return Collections.singletonList(msg);
 
@@ -309,6 +315,7 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
         addAll(fileAttachments);
       }};
       msg.setAttachments(attachments);
+      msg.setChannelData(asFbLocationsGenericTemplate(locations));
 
       messages.add(msg);
 
@@ -413,15 +420,29 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
 
         add(new Bubble() {{
           setTitle(firstBubble ? text : facebookBubbleHeader);
-          setButtons(newArrayList(transform(actions,
-              new Function<String, Button>() {
-                @Override public Button apply(String _) { return Button.postback(_); }
-              }))
-          );
+          setButtons(newArrayList(transform(actions, s -> Button.postback(s))));
         }});
       }
     }};
+    final GenericTemplate template = new GenericTemplate(bubbles);
+    return new FacebookChannelData() {{
+      setAttachment(new TemplateAttachment(template));
+    }};
+  }
 
+  private FacebookChannelData asFbLocationsGenericTemplate(final List<Location> locations) {
+    if (locations.isEmpty()) return null;
+    final Location l = locations.get(0);// TODO: handle multiple locations
+    final List<Bubble> bubbles = new ArrayList<Bubble>() {{
+      add(new Bubble() {{
+        setTitle(isBlank(l.caption) ? "." : l.caption);
+        setImageUrl(client.locationImageUrl(l.latitude, l.longitude));
+        DefaultAction defaultAction = new DefaultAction();
+        defaultAction.setType("web_url");
+        defaultAction.setUrl(client.locationLinkUrl(l.latitude, l.longitude));
+        setDefaultAction(defaultAction);
+      }});
+    }};
     final GenericTemplate template = new GenericTemplate(bubbles);
     return new FacebookChannelData() {{
       setAttachment(new TemplateAttachment(template));
@@ -504,5 +525,38 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
   @Override
   public void destroy() {
     // Nothing here.
+  }
+
+  private static class Location {
+
+    public final String caption;
+    public final double latitude;
+    public final double longitude;
+
+    private Location(double latitude, double longitude, String caption) {
+      this.latitude = latitude;
+      this.longitude = longitude;
+      this.caption = caption;
+    }
+
+    public static Location get(Attachment attachment) {
+      if (!"location".equalsIgnoreCase(attachment.getType())) return null;
+      try {
+        double latitude = Double.parseDouble(attachment.getLatitude());
+        double longitude = Double.parseDouble(attachment.getLongitude());
+        String caption = attachment.getCaption();
+        return new Location(latitude, longitude, caption);
+      } catch (Exception e) {
+        return null;
+      }
+    }
+
+    @Override
+    public String toString() {
+      return "Location{" +
+        "latitude=" + latitude +
+        ", longitude=" + longitude +
+        '}';
+    }
   }
 }

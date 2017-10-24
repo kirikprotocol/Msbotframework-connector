@@ -53,4 +53,9 @@ public interface MbfApi {
         .property("api-url", appId, protocol.getProtocolName())
         .set(checkNotNull(apiUrl));
   }
+
+  String locationLinkUrl(double latitude, double longitude);
+
+  String locationImageUrl(double latitude, double longitude);
+
 }

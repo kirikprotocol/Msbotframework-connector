@@ -26,6 +26,12 @@ public class Bubble {
   private String imageUrl;
 
   /**
+   * Default action
+   */
+  @JsonProperty("default_action")
+  private DefaultAction defaultAction;
+
+  /**
    * Bubble subtitle. Optional.
    */
   private String subtitle;
@@ -74,6 +80,14 @@ public class Bubble {
     return buttons;
   }
 
+  public DefaultAction getDefaultAction() {
+    return defaultAction;
+  }
+
+  public void setDefaultAction(DefaultAction defaultAction) {
+    this.defaultAction = defaultAction;
+  }
+
   public void setButtons(Button[] buttons) {
     this.buttons = buttons;
   }
@@ -83,4 +97,30 @@ public class Bubble {
   public void setButtons(List<Button> buttons) {
     setButtons(buttons.toArray(new Button[0]));
   }
+
+  public static class DefaultAction {
+
+    @JsonProperty("type")
+    private String type;
+
+    @JsonProperty("url")
+    private String url;
+
+    public String getType() {
+      return type;
+    }
+
+    public void setType(String type) {
+      this.type = type;
+    }
+
+    public String getUrl() {
+      return url;
+    }
+
+    public void setUrl(String url) {
+      this.url = url;
+    }
+  }
+
 }
