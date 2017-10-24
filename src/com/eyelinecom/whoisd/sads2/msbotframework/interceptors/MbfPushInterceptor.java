@@ -224,8 +224,9 @@ public class MbfPushInterceptor extends MbfPushBase implements Initable {
       fileAttachments.addAll(filter(transform(rawFileAttachments, converter), notNull()));
     }
 
-    List<Location> locations = rawFileAttachments.stream().map(Location::get).filter(a -> a != null)
-      .collect(Collectors.<Location>toList());
+    List<Location> locations = isNotEmpty(rawFileAttachments)
+      ? rawFileAttachments.stream().map(Location::get).filter(a -> a != null).collect(Collectors.<Location>toList())
+      : new ArrayList<Location>();
 
     if (request.getProtocol() == SKYPE) {
       final Activity msg = createActivityTemplate(request, bot);
