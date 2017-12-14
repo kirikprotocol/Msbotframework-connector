@@ -21,6 +21,12 @@ public class TextSplitTest {
   }
 
   @Test
+  public void testLongLine() {
+    final String str1 = "1234567890\n";
+    assertEquals("[1234567890]", StringUtils.splitText(str1, '\n', 5).toString());
+  }
+
+  @Test
   public void test2() {
     {
       final String str = "\n\n-uno\n\n-dos\n-tres\n\n\n";
